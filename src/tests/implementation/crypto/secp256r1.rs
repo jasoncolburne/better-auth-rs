@@ -9,6 +9,12 @@ use p256::ecdsa::{
 #[derive(Clone, Copy)]
 pub struct Secp256r1Verifier;
 
+impl Default for Secp256r1Verifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Secp256r1Verifier {
     pub fn new() -> Self {
         Self
@@ -52,6 +58,12 @@ impl VerifierTrait for Secp256r1Verifier {
 pub struct Secp256r1 {
     key_pair: Option<P256SigningKey>,
     verifier: Secp256r1Verifier,
+}
+
+impl Default for Secp256r1 {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Secp256r1 {

@@ -6,6 +6,12 @@ pub struct IdentityVerifier {
     hasher: HasherImpl,
 }
 
+impl Default for IdentityVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IdentityVerifier {
     pub fn new() -> Self {
         Self {

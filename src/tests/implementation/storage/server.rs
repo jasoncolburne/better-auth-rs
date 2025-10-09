@@ -19,6 +19,12 @@ pub struct ServerAuthenticationKeyStore {
     identities: Arc<Mutex<HashSet<String>>>,
 }
 
+impl Default for ServerAuthenticationKeyStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServerAuthenticationKeyStore {
     pub fn new() -> Self {
         Self {
@@ -119,6 +125,12 @@ impl ServerAuthenticationKeyStoreTrait for ServerAuthenticationKeyStore {
 #[derive(Clone)]
 pub struct ServerRecoveryHashStore {
     data_by_identity: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl Default for ServerRecoveryHashStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ServerRecoveryHashStore {

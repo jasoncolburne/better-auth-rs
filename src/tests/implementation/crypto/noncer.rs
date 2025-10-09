@@ -6,6 +6,12 @@ use rand::Rng;
 #[derive(Clone)]
 pub struct Noncer;
 
+impl Default for Noncer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Noncer {
     pub fn new() -> Self {
         Self

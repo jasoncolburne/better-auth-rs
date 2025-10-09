@@ -14,6 +14,12 @@ pub struct ClientRotatingKeyStore {
     hasher: HasherImpl,
 }
 
+impl Default for ClientRotatingKeyStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClientRotatingKeyStore {
     pub fn new() -> Self {
         Self {
@@ -82,6 +88,12 @@ impl ClientRotatingKeyStoreTrait for ClientRotatingKeyStore {
 #[derive(Clone)]
 pub struct ClientValueStore {
     value: Arc<Mutex<Option<String>>>,
+}
+
+impl Default for ClientValueStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ClientValueStore {

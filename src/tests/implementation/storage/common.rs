@@ -9,6 +9,12 @@ pub struct VerificationKeyStore {
     keys_by_identity: Arc<Mutex<HashMap<String, Secp256r1>>>,
 }
 
+impl Default for VerificationKeyStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VerificationKeyStore {
     pub fn new() -> Self {
         Self {

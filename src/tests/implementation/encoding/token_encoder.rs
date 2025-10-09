@@ -8,6 +8,12 @@ use std::io::Write;
 
 pub struct TokenEncoder;
 
+impl Default for TokenEncoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TokenEncoder {
     pub fn new() -> Self {
         Self
@@ -55,7 +61,7 @@ impl TokenEncoderTrait for TokenEncoder {
             .or_else(|_| {
                 // Add padding if needed
                 let mut padded = raw_token.to_string();
-                while padded.len() % 4 != 0 {
+                while !padded.len().is_multiple_of(4) {
                     padded.push('=');
                 }
                 base64::engine::general_purpose::URL_SAFE.decode(padded)

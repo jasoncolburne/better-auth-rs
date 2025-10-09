@@ -4,6 +4,12 @@ use async_trait::async_trait;
 #[derive(Clone)]
 pub struct Hasher;
 
+impl Default for Hasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Hasher {
     pub fn new() -> Self {
         Self

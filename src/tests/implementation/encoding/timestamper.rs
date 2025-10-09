@@ -3,6 +3,12 @@ use std::time::{Duration, SystemTime};
 
 pub struct Rfc3339Nano;
 
+impl Default for Rfc3339Nano {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rfc3339Nano {
     pub fn new() -> Self {
         Self
