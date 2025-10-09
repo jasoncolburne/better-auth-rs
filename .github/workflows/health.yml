@@ -25,7 +25,7 @@ jobs:
         run: cargo build --verbose
 
       - name: Test
-        run: cargo test --test api_test --test token_test --verbose
+        run: cargo test --test api_test --test token_test
 
   lint:
     runs-on: ubuntu-latest
