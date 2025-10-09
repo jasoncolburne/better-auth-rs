@@ -51,7 +51,6 @@ where
     F: FnOnce(String) -> Fut,
     Fut: std::future::Future<Output = Result<String, String>>,
 {
-    // eprintln!("{}", body);
     match logic(body).await {
         Ok(reply) => (StatusCode::OK, reply),
         Err(e) => {
