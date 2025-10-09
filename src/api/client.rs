@@ -190,14 +190,14 @@ impl BetterAuthClient {
     pub async fn link_device(&self, link_container: String) -> Result<(), String> {
         let container = LinkContainer::parse(&link_container)?;
         let nonce = self.crypto.noncer.generate_128().await?;
-        let (public_key, rotation_hash) = self.store.key.authentication.rotate().await?;
+        let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
 
         let mut request = LinkDeviceRequest::new(
             LinkDeviceRequestData {
                 authentication: LinkDeviceAuthentication {
                     device: self.store.identifier.device.get().await?,
                     identity: self.store.identifier.identity.get().await?,
-                    public_key,
+                    public_key: signing_key.public().await?,
                     rotation_hash,
                 },
                 link: container,
@@ -205,8 +205,7 @@ impl BetterAuthClient {
             nonce.clone(),
         );
 
-        let signer = self.store.key.authentication.signer().await?;
-        request.sign(signer.as_ref()).await?;
+        request.sign(signing_key.as_ref()).await?;
 
         let message = request.to_json().await?;
         let reply = self
@@ -223,12 +222,14 @@ impl BetterAuthClient {
             return Err("incorrect nonce".to_string());
         }
 
+        self.store.key.authentication.rotate().await?;
+
         Ok(())
     }
 
     pub async fn unlink_device(&self, device: String) -> Result<(), String> {
         let nonce = self.crypto.noncer.generate_128().await?;
-        let (public_key, rotation_hash) = self.store.key.authentication.rotate().await?;
+        let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
 
         let mut hash = rotation_hash;
         let current_device = self.store.identifier.device.get().await?;
@@ -243,7 +244,7 @@ impl BetterAuthClient {
                 authentication: UnlinkDeviceAuthentication {
                     device: current_device,
                     identity: self.store.identifier.identity.get().await?,
-                    public_key,
+                    public_key: signing_key.public().await?,
                     rotation_hash: hash,
                 },
                 link: UnlinkDeviceLink { device },
@@ -251,8 +252,7 @@ impl BetterAuthClient {
             nonce.clone(),
         );
 
-        let signer = self.store.key.authentication.signer().await?;
-        request.sign(signer.as_ref()).await?;
+        request.sign(signing_key.as_ref()).await?;
 
         let message = request.to_json().await?;
         let reply = self
@@ -269,11 +269,13 @@ impl BetterAuthClient {
             return Err("incorrect nonce".to_string());
         }
 
+        self.store.key.authentication.rotate().await?;
+
         Ok(())
     }
 
     pub async fn rotate_device(&self) -> Result<(), String> {
-        let (public_key, rotation_hash) = self.store.key.authentication.rotate().await?;
+        let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
         let mut request = RotateDeviceRequest::new(
@@ -281,15 +283,14 @@ impl BetterAuthClient {
                 authentication: RotateDeviceAuthentication {
                     device: self.store.identifier.device.get().await?,
                     identity: self.store.identifier.identity.get().await?,
-                    public_key,
+                    public_key: signing_key.public().await?,
                     rotation_hash,
                 },
             },
             nonce.clone(),
         );
 
-        let signer = self.store.key.authentication.signer().await?;
-        request.sign(signer.as_ref()).await?;
+        request.sign(signing_key.as_ref()).await?;
 
         let message = request.to_json().await?;
         let reply = self
@@ -305,6 +306,8 @@ impl BetterAuthClient {
         if response.payload.access.nonce != nonce {
             return Err("incorrect nonce".to_string());
         }
+
+        self.store.key.authentication.rotate().await?;
 
         Ok(())
     }
@@ -383,13 +386,13 @@ impl BetterAuthClient {
     }
 
     pub async fn refresh_session(&self) -> Result<(), String> {
-        let (public_key, rotation_hash) = self.store.key.access.rotate().await?;
+        let (signing_key, rotation_hash) = self.store.key.access.next().await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
         let mut request = RefreshSessionRequest::new(
             RefreshSessionRequestData {
                 access: RefreshSessionAccess {
-                    public_key,
+                    public_key: signing_key.public().await?,
                     rotation_hash,
                     token: self.store.token.access.get().await?,
                 },
@@ -397,8 +400,7 @@ impl BetterAuthClient {
             nonce.clone(),
         );
 
-        let signer = self.store.key.access.signer().await?;
-        request.sign(signer.as_ref()).await?;
+        request.sign(signing_key.as_ref()).await?;
 
         let message = request.to_json().await?;
         let reply = self
@@ -420,6 +422,8 @@ impl BetterAuthClient {
             .access
             .store(response.payload.response.access.token)
             .await?;
+
+        self.store.key.access.rotate().await?;
 
         Ok(())
     }
