@@ -71,7 +71,10 @@ impl VerificationKeyStoreTrait for IntegrationVerificationKeyStore {
         let keys = self.keys_by_identity.lock().await;
 
         keys.get(identity)
-            .map(|k| Box::new(Secp256r1VerificationKey::new(k.public_key.clone())) as Box<dyn VerificationKeyTrait>)
+            .map(|k| {
+                Box::new(Secp256r1VerificationKey::new(k.public_key.clone()))
+                    as Box<dyn VerificationKeyTrait>
+            })
             .ok_or_else(|| "not found".to_string())
     }
 }
@@ -319,9 +322,13 @@ async fn test_completes_auth_flows() {
         .await
         .expect("Failed to create account");
 
-    execute_flow(&better_auth_client, &ecc_verifier, &response_key_store_clone)
-        .await
-        .expect("Flow execution failed");
+    execute_flow(
+        &better_auth_client,
+        &ecc_verifier,
+        &response_key_store_clone,
+    )
+    .await
+    .expect("Flow execution failed");
 }
 
 #[tokio::test]
