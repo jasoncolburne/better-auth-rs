@@ -116,6 +116,44 @@ impl BetterAuthClient {
         Ok(())
     }
 
+    pub async fn delete_account(&self) -> Result<(), String> {
+        let nonce = self.crypto.noncer.generate_128().await?;
+        let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
+
+        let mut request = DeleteAccountRequest::new(
+            DeleteAccountRequestData {
+                authentication: DeleteAccountAuthentication {
+                    device: self.store.identifier.device.get().await?,
+                    identity: self.store.identifier.identity.get().await?,
+                    public_key: signing_key.public().await?,
+                    rotation_hash,
+                },
+            },
+            nonce.clone(),
+        );
+
+        request.sign(signing_key.as_ref()).await?;
+
+        let message = request.to_json().await?;
+        let reply = self
+            .io
+            .network
+            .send_request(&self.paths.account.delete, &message)
+            .await?;
+
+        let response = DeleteAccountResponse::parse(&reply)?;
+        self.verify_response(&response, &response.payload.access.server_identity)
+            .await?;
+
+        if response.payload.access.nonce != nonce {
+            return Err("incorrect nonce".to_string());
+        }
+
+        self.store.key.authentication.rotate().await?;
+
+        Ok(())
+    }
+
     pub async fn recover_account(
         &self,
         identity: String,

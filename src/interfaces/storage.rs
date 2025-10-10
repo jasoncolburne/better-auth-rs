@@ -95,6 +95,9 @@ pub trait ServerAuthenticationKeyStore: Send + Sync {
 
     /// Revoke access for all devices
     async fn revoke_devices(&self, identity: String) -> Result<(), String>;
+
+    /// Delete all devices and the record of identity
+    async fn delete_identity(&self, identity: String) -> Result<(), String>;
 }
 
 #[async_trait]

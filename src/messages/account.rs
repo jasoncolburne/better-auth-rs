@@ -54,3 +54,27 @@ pub type RecoverAccountRequest = ClientRequest<RecoverAccountRequestData>;
 pub struct RecoverAccountResponseData {}
 
 pub type RecoverAccountResponse = ServerResponse<RecoverAccountResponseData>;
+
+// Delete Account
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteAccountAuthentication {
+    pub device: String,
+    pub identity: String,
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+    #[serde(rename = "rotationHash")]
+    pub rotation_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteAccountRequestData {
+    pub authentication: DeleteAccountAuthentication,
+}
+
+pub type DeleteAccountRequest = ClientRequest<DeleteAccountRequestData>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteAccountResponseData {}
+
+pub type DeleteAccountResponse = ServerResponse<DeleteAccountResponseData>;

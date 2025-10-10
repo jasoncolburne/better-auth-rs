@@ -442,6 +442,7 @@ async fn create_client(
         paths: AuthPaths {
             account: AccountPaths {
                 create: "/account/create".to_string(),
+                delete: "/account/delete".to_string(),
                 recover: "/account/recover".to_string(),
             },
             session: SessionPaths {
