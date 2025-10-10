@@ -73,14 +73,18 @@ impl BetterAuthServer {
             )
             .await?;
 
-        let device_hash = self
+        let device = self
             .crypto
             .hasher
-            .sum(&request.payload.request.authentication.public_key)
+            .sum(&format!(
+                "{}{}",
+                request.payload.request.authentication.public_key,
+                request.payload.request.authentication.rotation_hash
+            ))
             .await?;
 
-        if device_hash != request.payload.request.authentication.device {
-            return Err("malformed device".to_string());
+        if device != request.payload.request.authentication.device {
+            return Err("bad device derivation".to_string());
         }
 
         self.store
@@ -125,6 +129,20 @@ impl BetterAuthServer {
                 &request.payload.request.authentication.recovery_key,
             )
             .await?;
+
+        let device = self
+            .crypto
+            .hasher
+            .sum(&format!(
+                "{}{}",
+                request.payload.request.authentication.public_key,
+                request.payload.request.authentication.rotation_hash
+            ))
+            .await?;
+
+        if device != request.payload.request.authentication.device {
+            return Err("bad device derivation".to_string());
+        }
 
         let hash = self
             .crypto
@@ -196,6 +214,20 @@ impl BetterAuthServer {
             != request.payload.request.authentication.identity
         {
             return Err("mismatched identities".to_string());
+        }
+
+        let device = self
+            .crypto
+            .hasher
+            .sum(&format!(
+                "{}{}",
+                link_container.payload.authentication.public_key,
+                link_container.payload.authentication.rotation_hash
+            ))
+            .await?;
+
+        if device != link_container.payload.authentication.device {
+            return Err("bad device derivation".to_string());
         }
 
         self.store

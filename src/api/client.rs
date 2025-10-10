@@ -72,7 +72,11 @@ impl BetterAuthClient {
             .initialize(Some(recovery_hash.clone()))
             .await?;
 
-        let device = self.crypto.hasher.sum(&public_key).await?;
+        let device = self
+            .crypto
+            .hasher
+            .sum(&format!("{}{}", public_key, rotation_hash))
+            .await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
         let mut request = CreateAccountRequest::new(
@@ -120,7 +124,11 @@ impl BetterAuthClient {
     ) -> Result<(), String> {
         let (_, public_key, rotation_hash) = self.store.key.authentication.initialize(None).await?;
 
-        let device = self.crypto.hasher.sum(&public_key).await?;
+        let device = self
+            .crypto
+            .hasher
+            .sum(&format!("{}{}", public_key, rotation_hash))
+            .await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
         let mut request = RecoverAccountRequest::new(
@@ -163,7 +171,11 @@ impl BetterAuthClient {
     pub async fn generate_link_container(&self, identity: String) -> Result<String, String> {
         let (_, public_key, rotation_hash) = self.store.key.authentication.initialize(None).await?;
 
-        let device = self.crypto.hasher.sum(&public_key).await?;
+        let device = self
+            .crypto
+            .hasher
+            .sum(&format!("{}{}", public_key, rotation_hash))
+            .await?;
 
         self.store
             .identifier
