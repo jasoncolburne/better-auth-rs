@@ -79,6 +79,14 @@ async fn recover(State(state): State<AppState>, body: String) -> (StatusCode, St
     .await
 }
 
+async fn delete(State(state): State<AppState>, body: String) -> (StatusCode, String) {
+    wrap_response(
+        body,
+        |msg| async move { state.ba.delete_account(&msg).await },
+    )
+    .await
+}
+
 async fn link(State(state): State<AppState>, body: String) -> (StatusCode, String) {
     wrap_response(body, |msg| async move { state.ba.link_device(&msg).await }).await
 }
@@ -307,6 +315,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/account/create", post(create))
         .route("/account/recover", post(recover))
+        .route("/account/delete", post(delete))
         .route("/session/request", post(start_authentication))
         .route("/session/create", post(finish_authentication))
         .route("/session/refresh", post(rotate_access))

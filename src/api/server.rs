@@ -121,6 +121,45 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
+    pub async fn delete_account(&self, message: &str) -> Result<String, String> {
+        let request = DeleteAccountRequest::parse(message)?;
+        request
+            .verify(
+                self.crypto.verifier.as_ref(),
+                &request.payload.request.authentication.public_key,
+            )
+            .await?;
+
+        self.store
+            .authentication
+            .key
+            .rotate(
+                request.payload.request.authentication.identity.clone(),
+                request.payload.request.authentication.device.clone(),
+                request.payload.request.authentication.public_key.clone(),
+                request.payload.request.authentication.rotation_hash.clone(),
+            )
+            .await?;
+
+        self.store
+            .authentication
+            .key
+            .delete_identity(request.payload.request.authentication.identity.clone())
+            .await?;
+
+        let mut response = DeleteAccountResponse::new(
+            DeleteAccountResponseData {},
+            self.crypto.key_pair.response.identity().await?,
+            request.payload.access.nonce.clone(),
+        );
+
+        response
+            .sign(self.crypto.key_pair.response.as_ref())
+            .await?;
+
+        response.to_json().await
+    }
+
     pub async fn recover_account(&self, message: &str) -> Result<String, String> {
         let request = RecoverAccountRequest::parse(message)?;
         request

@@ -59,6 +59,18 @@ impl ServerAuthenticationKeyStoreTrait for ServerAuthenticationKeyStore {
         Ok(())
     }
 
+    async fn delete_identity(&self, identity: String) -> Result<(), String> {
+        let mut identities = self.identities.lock().await;
+        if !identities.contains(&identity) {
+            return Err("not found".to_string());
+        }
+
+        let mut data = self.data_by_token.lock().await;
+        data.retain(|key, _| !key.starts_with(&identity));
+        identities.remove(&identity);
+        Ok(())
+    }
+
     async fn register(
         &self,
         identity: String,

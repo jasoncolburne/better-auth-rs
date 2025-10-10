@@ -10,6 +10,7 @@ pub struct AuthenticationPaths {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountPaths {
     pub create: String,
+    pub delete: String,
     pub recover: String,
 }
 
