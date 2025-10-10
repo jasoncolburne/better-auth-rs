@@ -330,6 +330,11 @@ async fn test_completes_auth_flows() {
     )
     .await
     .expect("Flow execution failed");
+
+    better_auth_client
+        .delete_account()
+        .await
+        .expect("Failed to delete account");
 }
 
 #[tokio::test]
