@@ -9,8 +9,9 @@ use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct ClientRotatingKeyStore {
-    current: Arc<Mutex<Option<Secp256r1>>>,
-    next: Arc<Mutex<Option<Secp256r1>>>,
+    current_key: Arc<Mutex<Option<Secp256r1>>>,
+    next_key: Arc<Mutex<Option<Secp256r1>>>,
+    future_key: Arc<Mutex<Option<Secp256r1>>>,
     hasher: HasherImpl,
 }
 
@@ -23,8 +24,9 @@ impl Default for ClientRotatingKeyStore {
 impl ClientRotatingKeyStore {
     pub fn new() -> Self {
         Self {
-            current: Arc::new(Mutex::new(None)),
-            next: Arc::new(Mutex::new(None)),
+            current_key: Arc::new(Mutex::new(None)),
+            next_key: Arc::new(Mutex::new(None)),
+            future_key: Arc::new(Mutex::new(None)),
             hasher: HasherImpl::new(),
         }
     }
@@ -52,32 +54,47 @@ impl ClientRotatingKeyStoreTrait for ClientRotatingKeyStore {
             .sum(&format!("{}{}{}", public_key, rotation_hash, suffix))
             .await?;
 
-        *self.current.lock().await = Some(current);
-        *self.next.lock().await = Some(next);
+        *self.current_key.lock().await = Some(current);
+        *self.next_key.lock().await = Some(next);
 
         Ok((identity, public_key, rotation_hash))
     }
 
-    async fn rotate(&self) -> Result<(String, String), String> {
-        let mut next_guard = self.next.lock().await;
-        let next = next_guard.as_ref().ok_or("call initialize() first")?;
+    async fn next(&self) -> Result<(Box<dyn SigningKey>, String), String> {
+        let next_guard = self.next_key.lock().await;
+        next_guard.as_ref().ok_or("call initialize() first")?;
 
-        let mut new_next = Secp256r1::new();
-        new_next.generate()?;
+        let mut future_guard = self.future_key.lock().await;
+        if future_guard.is_none() {
+            let mut key = Secp256r1::new();
+            key.generate()?;
+            *future_guard = Some(key);
+        }
 
-        let new_next_public = new_next.public().await?;
-        let rotation_hash = self.hasher.sum(&new_next_public).await?;
-        let public_key = next.public().await?;
+        let future_key = future_guard.as_ref().unwrap();
+        let rotation_hash = self.hasher.sum(&future_key.public().await?).await?;
 
-        // Move next to current
-        *self.current.lock().await = next_guard.take();
-        *next_guard = Some(new_next);
+        Ok((
+            Box::new(next_guard.as_ref().unwrap().clone()),
+            rotation_hash,
+        ))
+    }
 
-        Ok((public_key, rotation_hash))
+    async fn rotate(&self) -> Result<(), String> {
+        let mut next_guard = self.next_key.lock().await;
+        next_guard.as_ref().ok_or("call initialize() first")?;
+
+        let mut future_guard = self.future_key.lock().await;
+        future_guard.as_ref().ok_or("call next() first")?;
+
+        *self.current_key.lock().await = next_guard.take();
+        *next_guard = future_guard.take();
+
+        Ok(())
     }
 
     async fn signer(&self) -> Result<Box<dyn SigningKey>, String> {
-        let current_guard = self.current.lock().await;
+        let current_guard = self.current_key.lock().await;
         let current = current_guard.as_ref().ok_or("call initialize() first")?;
 
         // Clone the key to return as a boxed trait object

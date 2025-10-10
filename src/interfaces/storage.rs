@@ -19,9 +19,21 @@ pub trait ClientRotatingKeyStore: Send + Sync {
         extra_data: Option<String>,
     ) -> Result<(String, String, String), String>;
 
-    /// Returns: (publicKey, rotationHash)
-    /// Returns an error if no keys exist
-    async fn rotate(&self) -> Result<(String, String), String>;
+    /// Returns: (key, rotationHash)
+    ///
+    /// This should return the _next_ signing key and a hash of the subsequent key.
+    /// If no subsequent key exists yet, it should first be generated.
+    ///
+    /// This facilitates a failed network request during a rotation operation.
+    async fn next(&self) -> Result<(Box<dyn SigningKey>, String), String>;
+
+    /// Commit the key rotation.
+    ///
+    /// This is the commit operation of next().
+    ///
+    /// Returns an error if next() has not been called since the last call to
+    /// initialize() or rotate().
+    async fn rotate(&self) -> Result<(), String>;
 
     /// Returns a handle to a signing key
     async fn signer(&self) -> Result<Box<dyn SigningKey>, String>;
