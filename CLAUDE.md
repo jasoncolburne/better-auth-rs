@@ -327,3 +327,20 @@ When making changes to this implementation:
 - Requires async runtime (tokio)
 - Core dependencies: serde, tokio, async-trait
 - Crypto dependencies: blake3, p256, rand
+
+## Future Work
+
+### Dependency Management
+- **Minimize production dependencies**: Review `Cargo.toml` to ensure only essential dependencies are included in the main library. Consider:
+  - Moving test-only dependencies to `[dev-dependencies]`
+  - Making crypto implementations optional via feature flags
+  - Reducing the dependency tree for minimal deployments
+
+### Code Organization
+- **Move example implementations out of src/**: Currently, reference implementations are in `src/tests/implementation/`. Consider:
+  - Moving to a top-level `examples/` or `reference/` directory if Rust's module system permits
+  - Ensuring these implementations don't increase compile time or binary size for library consumers
+  - Making example implementations opt-in via feature flags
+  - Separating test fixtures from production code more clearly
+
+These changes would improve the library's modularity and reduce overhead for production users who want to bring their own crypto and storage implementations.
