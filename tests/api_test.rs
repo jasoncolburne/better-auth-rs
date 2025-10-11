@@ -9,10 +9,10 @@ use better_auth::messages::*;
 use better_auth::{Serializable, Signable, SigningKey};
 use serde::{Deserialize, Serialize};
 
-mod common;
+mod implementation;
 
 // Import implementation types with explicit names to avoid conflicts
-use common::implementation::{
+use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
     Hasher as HasherImpl, IdentityVerifier as IdentityVerifierImpl, Noncer as NoncerImpl,
     Rfc3339Nano, Secp256r1, Secp256r1Verifier, ServerAuthenticationKeyStore as AuthKeyStoreImpl,
@@ -308,8 +308,8 @@ async fn create_server(
     let auth_challenge_lifetime = authentication_challenge_lifetime_in_seconds.unwrap_or(60);
     let authentication_nonce_store = AuthNonceStoreImpl::new(auth_challenge_lifetime as u64);
 
-    let auth_key_store = authentication_key_store.unwrap_or_else(AuthKeyStoreImpl::new);
-    let rec_hash_store = recovery_hash_store.unwrap_or_else(RecoveryHashStoreImpl::new);
+    let auth_key_store = authentication_key_store.unwrap_or_default();
+    let rec_hash_store = recovery_hash_store.unwrap_or_default();
 
     Ok(BetterAuthServer {
         crypto: BetterAuthServerCrypto {
@@ -374,6 +374,7 @@ async fn create_verifier(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_client(
     access_signer: Secp256r1,
     response_signer: Secp256r1,
@@ -467,7 +468,7 @@ async fn create_client(
                 response: Box::new(response_key_store),
             },
             token: BetterAuthClientTokenStore {
-                access: Box::new(access_token_store.unwrap_or_else(ValueStoreImpl::new)),
+                access: Box::new(access_token_store.unwrap_or_default()),
             },
         },
     })
@@ -911,7 +912,7 @@ async fn test_rejects_expired_access_tokens() {
 
 #[tokio::test]
 async fn test_detects_tampered_access_tokens() {
-    use common::implementation::Base64;
+    use implementation::Base64;
 
     let ecc_verifier = Secp256r1Verifier::new();
     let hasher = HasherImpl::new();

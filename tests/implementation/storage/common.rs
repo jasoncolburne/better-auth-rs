@@ -1,6 +1,6 @@
 use super::super::crypto::Secp256r1;
-use crate::interfaces::{VerificationKey, VerificationKeyStore as VerificationKeyStoreTrait};
 use async_trait::async_trait;
+use better_auth::interfaces::{VerificationKey, VerificationKeyStore as VerificationKeyStoreTrait};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;

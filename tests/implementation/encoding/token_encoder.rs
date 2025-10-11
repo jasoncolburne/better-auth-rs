@@ -1,6 +1,6 @@
-use crate::interfaces::TokenEncoder as TokenEncoderTrait;
 use async_trait::async_trait;
 use base64::Engine;
+use better_auth::interfaces::TokenEncoder as TokenEncoderTrait;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;

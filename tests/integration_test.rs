@@ -12,9 +12,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-mod common;
+mod implementation;
 
-use common::implementation::{
+use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
     Hasher as HasherImpl, Noncer as NoncerImpl, Rfc3339Nano, Secp256r1, Secp256r1Verifier,
 };

@@ -1,4 +1,4 @@
-use crate::interfaces::Timestamper as TimestamperTrait;
+use better_auth::interfaces::Timestamper as TimestamperTrait;
 use std::time::{Duration, SystemTime};
 
 pub struct Rfc3339Nano;

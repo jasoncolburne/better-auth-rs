@@ -1,5 +1,5 @@
-use crate::interfaces::Hasher as HasherTrait;
 use async_trait::async_trait;
+use better_auth::interfaces::Hasher as HasherTrait;
 
 #[derive(Clone)]
 pub struct Hasher;

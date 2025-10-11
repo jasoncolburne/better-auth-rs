@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 pub mod hasher;
 pub mod noncer;
 pub mod secp256r1;
