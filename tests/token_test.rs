@@ -1,6 +1,8 @@
 use better_auth::Signable;
 use better_auth::messages::AccessToken;
-use better_auth::tests::implementation::{Secp256r1, TokenEncoder};
+
+mod implementation;
+use implementation::{Secp256r1, TokenEncoder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

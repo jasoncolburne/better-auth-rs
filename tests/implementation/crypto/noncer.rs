@@ -1,6 +1,6 @@
-use crate::interfaces::Noncer as NoncerTrait;
 use async_trait::async_trait;
 use base64::Engine;
+use better_auth::interfaces::Noncer as NoncerTrait;
 use rand::Rng;
 
 #[derive(Clone)]

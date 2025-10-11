@@ -1,3 +1,5 @@
+#![allow(unused_imports, dead_code)]
+
 pub mod base64;
 pub mod identity;
 pub mod timestamper;

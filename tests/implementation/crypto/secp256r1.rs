@@ -1,6 +1,6 @@
-use crate::interfaces::{SigningKey, VerificationKey, Verifier as VerifierTrait};
 use async_trait::async_trait;
 use base64::Engine;
+use better_auth::interfaces::{SigningKey, VerificationKey, Verifier as VerifierTrait};
 use p256::ecdsa::{
     Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey, signature::Signer,
     signature::Verifier as SigVerifier,

@@ -1,12 +1,12 @@
 use super::super::crypto::{Hasher as HasherImpl, Noncer};
-use crate::interfaces::{
+use async_trait::async_trait;
+use better_auth::interfaces::{
     Hasher, Noncer as NoncerTrait,
     ServerAuthenticationKeyStore as ServerAuthenticationKeyStoreTrait,
     ServerAuthenticationNonceStore as ServerAuthenticationNonceStoreTrait,
     ServerRecoveryHashStore as ServerRecoveryHashStoreTrait,
     ServerTimeLockStore as ServerTimeLockStoreTrait,
 };
-use async_trait::async_trait;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::SystemTime;

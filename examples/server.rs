@@ -13,7 +13,11 @@ use better_auth::api::server::{
 use better_auth::interfaces::{SigningKey, VerificationKey};
 use better_auth::messages::{AccessRequest, ServerResponse};
 use better_auth::messages::{Serializable, Signable};
-use better_auth::tests::implementation::{
+
+#[path = "../tests/implementation/mod.rs"]
+mod implementation;
+
+use implementation::{
     Hasher, IdentityVerifier, Noncer, Rfc3339Nano, Secp256r1, Secp256r1Verifier,
     ServerAuthenticationKeyStore, ServerAuthenticationNonceStore, ServerRecoveryHashStore,
     ServerTimeLockStore, TokenEncoder, VerificationKeyStore,

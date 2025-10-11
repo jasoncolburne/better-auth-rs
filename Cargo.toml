@@ -34,7 +34,7 @@ tower-http = { version = "0.5", features = ["cors"] }
 reqwest = "0.11"
 
 [features]
-default = ["test-implementations"]
+default = []
 test-implementations = ["tokio", "blake3", "p256", "base64", "chrono", "flate2", "rand"]
 
 [lib]

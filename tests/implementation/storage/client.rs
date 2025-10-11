@@ -1,9 +1,9 @@
 use super::super::crypto::{Hasher as HasherImpl, Secp256r1};
-use crate::interfaces::{
+use async_trait::async_trait;
+use better_auth::interfaces::{
     ClientRotatingKeyStore as ClientRotatingKeyStoreTrait,
     ClientValueStore as ClientValueStoreTrait, Hasher, SigningKey, VerificationKey,
 };
-use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

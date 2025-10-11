@@ -1,6 +1,6 @@
 use super::super::crypto::Hasher as HasherImpl;
-use crate::interfaces::{Hasher, IdentityVerifier as IdentityVerifierTrait};
 use async_trait::async_trait;
+use better_auth::interfaces::{Hasher, IdentityVerifier as IdentityVerifierTrait};
 
 pub struct IdentityVerifier {
     hasher: HasherImpl,
