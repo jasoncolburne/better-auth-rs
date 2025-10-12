@@ -596,7 +596,7 @@ pub struct AccessVerifier {
 }
 
 impl AccessVerifier {
-    pub async fn verify<T, U>(&self, message: &str) -> Result<(T, AccessToken<U>), String>
+    pub async fn verify<T, U>(&self, message: &str) -> Result<(T, AccessToken<U>, String), String>
     where
         T: for<'de> Deserialize<'de> + Serialize + Send + Sync,
         U: for<'de> Deserialize<'de> + Serialize + Send + Sync,
@@ -613,6 +613,10 @@ impl AccessVerifier {
             )
             .await?;
 
-        Ok((request.payload.request, access_token))
+        Ok((
+            request.payload.request,
+            access_token,
+            request.payload.access.nonce.clone(),
+        ))
     }
 }
