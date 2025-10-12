@@ -169,7 +169,7 @@ impl MockNetworkServer {
                 self.better_auth_server.unlink_device(message).await
             }
             "/foo/bar" => {
-                let (_request, token) = self
+                let (_request, token, _nonce) = self
                     .access_verifier
                     .verify::<FakeRequestData, MockAccessAttributes>(message)
                     .await?;
@@ -190,7 +190,7 @@ impl MockNetworkServer {
                 self.respond_to_access_request(message, None).await
             }
             "/bad/nonce" => {
-                let (_request, token) = self
+                let (_request, token, _nonce) = self
                     .access_verifier
                     .verify::<FakeRequestData, MockAccessAttributes>(message)
                     .await?;

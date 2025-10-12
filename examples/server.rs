@@ -11,7 +11,7 @@ use better_auth::api::server::{
     BetterAuthServerStore,
 };
 use better_auth::interfaces::{SigningKey, VerificationKey};
-use better_auth::messages::{AccessRequest, ServerResponse};
+use better_auth::messages::{AccessToken, ServerResponse};
 use better_auth::messages::{Serializable, Signable};
 
 #[path = "../tests/implementation/mod.rs"]
@@ -166,13 +166,14 @@ async fn respond_to_access_request(
     bad_nonce: bool,
 ) -> Result<String, String> {
     // Verify the access token
-    let (_request_payload, _token): (MockRequestPayload, _) = state
+    let (request, _token, request_nonce): (
+        MockRequestPayload,
+        AccessToken<MockTokenAttributes>,
+        String,
+    ) = state
         .av
         .verify::<MockRequestPayload, MockTokenAttributes>(&message)
         .await?;
-
-    // Parse the access request
-    let request: AccessRequest<MockRequestPayload> = AccessRequest::parse(&message)?;
 
     // Get the server identity
     let server_identity = state.server_response_key.identity().await?;
@@ -181,14 +182,14 @@ async fn respond_to_access_request(
     let nonce = if bad_nonce {
         "0A0123456789".to_string()
     } else {
-        request.payload.access.nonce.clone()
+        request_nonce.clone()
     };
 
     // Create the response
     let mut response: ServerResponse<MockResponsePayload> = ServerResponse::new(
         MockResponsePayload {
-            was_foo: request.payload.request.foo.clone(),
-            was_bar: request.payload.request.bar.clone(),
+            was_foo: request.foo.clone(),
+            was_bar: request.bar.clone(),
         },
         server_identity,
         nonce,
