@@ -5,6 +5,7 @@ pub struct AuthenticationPaths {
     pub account: AccountPaths,
     pub session: SessionPaths,
     pub device: DevicePaths,
+    pub recovery: RecoveryPaths,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,4 +27,9 @@ pub struct DevicePaths {
     pub rotate: String,
     pub link: String,
     pub unlink: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPaths {
+    pub change: String,
 }

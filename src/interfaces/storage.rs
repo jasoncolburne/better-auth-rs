@@ -114,6 +114,11 @@ pub trait ServerRecoveryHashStore: Send + Sync {
         old_hash: String,
         new_hash: String,
     ) -> Result<(), String>;
+
+    /// Change recovery hash (without checking old hash)
+    /// Returns errors if:
+    /// - not found
+    async fn change(&self, identity: String, key_hash: String) -> Result<(), String>;
 }
 
 #[async_trait]

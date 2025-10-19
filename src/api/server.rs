@@ -382,6 +382,49 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
+    pub async fn change_recovery_key(&self, message: &str) -> Result<String, String> {
+        let request = ChangeRecoveryKeyRequest::parse(message)?;
+
+        request
+            .verify(
+                self.crypto.verifier.as_ref(),
+                &request.payload.request.authentication.public_key,
+            )
+            .await?;
+
+        self.store
+            .authentication
+            .key
+            .rotate(
+                request.payload.request.authentication.identity.clone(),
+                request.payload.request.authentication.device.clone(),
+                request.payload.request.authentication.public_key.clone(),
+                request.payload.request.authentication.rotation_hash.clone(),
+            )
+            .await?;
+
+        self.store
+            .recovery
+            .hash
+            .change(
+                request.payload.request.authentication.identity.clone(),
+                request.payload.request.authentication.recovery_hash.clone(),
+            )
+            .await?;
+
+        let mut response = ChangeRecoveryKeyResponse::new(
+            ChangeRecoveryKeyResponseData {},
+            self.crypto.key_pair.response.identity().await?,
+            request.payload.access.nonce.clone(),
+        );
+
+        response
+            .sign(self.crypto.key_pair.response.as_ref())
+            .await?;
+
+        response.to_json().await
+    }
+
     pub async fn request_session(&self, message: &str) -> Result<String, String> {
         let request = RequestSessionRequest::parse(message)?;
 

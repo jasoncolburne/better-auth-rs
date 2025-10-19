@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use better_auth::api::*;
 use better_auth::interfaces::{
     AccountPaths, AuthenticationPaths as AuthPaths, ClientValueStore as ClientValueStoreTrait,
-    DevicePaths, Hasher as HasherTrait, Network as NetworkTrait, SessionPaths,
+    DevicePaths, Hasher as HasherTrait, Network as NetworkTrait, RecoveryPaths, SessionPaths,
     VerificationKey as VerificationKeyTrait, VerificationKeyStore as VerificationKeyStoreTrait,
 };
 use better_auth::messages::*;
@@ -113,6 +113,7 @@ struct MockNetworkServer {
     session_request_path: String,
     session_create_path: String,
     session_refresh_path: String,
+    recovery_change_path: String,
 }
 
 impl MockNetworkServer {
@@ -167,6 +168,9 @@ impl MockNetworkServer {
             }
             p if p == self.device_unlink_path => {
                 self.better_auth_server.unlink_device(message).await
+            }
+            p if p == self.recovery_change_path => {
+                self.better_auth_server.change_recovery_key(message).await
             }
             "/foo/bar" => {
                 let (_request, token, _nonce) = self
@@ -422,6 +426,7 @@ async fn create_client(
         session_request_path: "/session/request".to_string(),
         session_create_path: "/session/create".to_string(),
         session_refresh_path: "/session/refresh".to_string(),
+        recovery_change_path: "/recovery/change".to_string(),
     };
 
     let response_key_store = VerificationKeyStoreImpl::new();
@@ -455,6 +460,9 @@ async fn create_client(
                 rotate: "/device/rotate".to_string(),
                 link: "/device/link".to_string(),
                 unlink: "/device/unlink".to_string(),
+            },
+            recovery: RecoveryPaths {
+                change: "/recovery/change".to_string(),
             },
         },
         store: BetterAuthClientStore {
@@ -602,17 +610,30 @@ async fn test_recovers_from_loss() {
         .expect("Failed to create account");
 
     let identity = better_auth_client.identity().await.unwrap();
+    let mut new_recovery_signer = Secp256r1::new();
     let mut next_recovery_signer = Secp256r1::new();
+    new_recovery_signer
+        .generate()
+        .expect("Failed to generate new recovery key");
     next_recovery_signer
         .generate()
         .expect("Failed to generate next recovery key");
+    let new_recovery_hash = hasher
+        .sum(&new_recovery_signer.public().await.unwrap())
+        .await
+        .unwrap();
     let next_recovery_hash = hasher
         .sum(&next_recovery_signer.public().await.unwrap())
         .await
         .unwrap();
 
+    better_auth_client
+        .change_recovery_key(new_recovery_hash)
+        .await
+        .expect("Failed to change recovery key");
+
     recovered_better_auth_client
-        .recover_account(identity, Box::new(recovery_signer), next_recovery_hash)
+        .recover_account(identity, Box::new(new_recovery_signer), next_recovery_hash)
         .await
         .expect("Failed to recover account");
 
