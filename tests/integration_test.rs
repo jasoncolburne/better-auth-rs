@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use better_auth::api::client::*;
 use better_auth::interfaces::{
     AccountPaths, AuthenticationPaths as AuthPaths, DevicePaths, Hasher as HasherTrait,
-    Network as NetworkTrait, SessionPaths, VerificationKey as VerificationKeyTrait,
+    Network as NetworkTrait, RecoveryPaths, SessionPaths, VerificationKey as VerificationKeyTrait,
     VerificationKeyStore as VerificationKeyStoreTrait, Verifier as VerifierTrait,
 };
 use better_auth::messages::*;
@@ -267,6 +267,9 @@ async fn create_client(
                 link: "/device/link".to_string(),
                 unlink: "/device/unlink".to_string(),
             },
+            recovery: RecoveryPaths {
+                change: "/recovery/change".to_string(),
+            },
         },
         store: BetterAuthClientStore {
             identifier: BetterAuthClientIdentifierStore {
@@ -381,17 +384,30 @@ async fn test_recovers_from_loss() {
         .expect("Failed to create account");
 
     let identity = better_auth_client.identity().await.unwrap();
+    let mut new_recovery_signer = Secp256r1::new();
     let mut next_recovery_signer = Secp256r1::new();
+    new_recovery_signer
+        .generate()
+        .expect("Failed to generate new recovery key");
     next_recovery_signer
         .generate()
         .expect("Failed to generate next recovery key");
+    let new_recovery_hash = hasher
+        .sum(&new_recovery_signer.public().await.unwrap())
+        .await
+        .unwrap();
     let next_recovery_hash = hasher
         .sum(&next_recovery_signer.public().await.unwrap())
         .await
         .unwrap();
 
+    better_auth_client
+        .change_recovery_key(new_recovery_hash)
+        .await
+        .expect("Failed to change recovery key");
+
     recovered_better_auth_client
-        .recover_account(identity, Box::new(recovery_signer), next_recovery_hash)
+        .recover_account(identity, Box::new(new_recovery_signer), next_recovery_hash)
         .await
         .expect("Failed to recover account");
 

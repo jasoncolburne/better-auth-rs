@@ -146,6 +146,13 @@ async fn rotate_authentication(
     .await
 }
 
+async fn change_recovery_key(State(state): State<AppState>, body: String) -> (StatusCode, String) {
+    wrap_response(body, |msg| async move {
+        state.ba.change_recovery_key(&msg).await
+    })
+    .await
+}
+
 async fn rotate_access(State(state): State<AppState>, body: String) -> (StatusCode, String) {
     wrap_response(body, |msg| async move {
         state.ba.refresh_session::<MockTokenAttributes>(&msg).await
@@ -327,6 +334,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/device/rotate", post(rotate_authentication))
         .route("/device/link", post(link))
         .route("/device/unlink", post(unlink))
+        .route("/recovery/change", post(change_recovery_key))
         .route("/key/response", post(response_key))
         .route("/foo/bar", post(foo_bar))
         .route("/bad/nonce", post(bad_nonce))

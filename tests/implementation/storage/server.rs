@@ -183,6 +183,17 @@ impl ServerRecoveryHashStoreTrait for ServerRecoveryHashStore {
         data.insert(identity, new_hash);
         Ok(())
     }
+
+    async fn change(&self, identity: String, key_hash: String) -> Result<(), String> {
+        let mut data = self.data_by_identity.lock().await;
+
+        if !data.contains_key(&identity) {
+            return Err("not found".to_string());
+        }
+
+        data.insert(identity, key_hash);
+        Ok(())
+    }
 }
 
 #[derive(Clone)]

@@ -362,6 +362,45 @@ impl BetterAuthClient {
         Ok(())
     }
 
+    pub async fn change_recovery_key(&self, recovery_hash: String) -> Result<(), String> {
+        let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
+        let nonce = self.crypto.noncer.generate_128().await?;
+
+        let mut request = ChangeRecoveryKeyRequest::new(
+            ChangeRecoveryKeyRequestData {
+                authentication: ChangeRecoveryKeyAuthentication {
+                    device: self.store.identifier.device.get().await?,
+                    identity: self.store.identifier.identity.get().await?,
+                    public_key: signing_key.public().await?,
+                    recovery_hash,
+                    rotation_hash,
+                },
+            },
+            nonce.clone(),
+        );
+
+        request.sign(signing_key.as_ref()).await?;
+
+        let message = request.to_json().await?;
+        let reply = self
+            .io
+            .network
+            .send_request(&self.paths.recovery.change, &message)
+            .await?;
+
+        let response = ChangeRecoveryKeyResponse::parse(&reply)?;
+        self.verify_response(&response, &response.payload.access.server_identity)
+            .await?;
+
+        if response.payload.access.nonce != nonce {
+            return Err("incorrect nonce".to_string());
+        }
+
+        self.store.key.authentication.rotate().await?;
+
+        Ok(())
+    }
+
     pub async fn create_session(&self) -> Result<(), String> {
         let start_nonce = self.crypto.noncer.generate_128().await?;
 
