@@ -86,13 +86,21 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         Ok(format!("{}{}", signature, token))
     }
 
-    pub async fn verify_token(
+    pub async fn verify_signature(
+        &self,
+        verifier: &dyn Verifier,
+        public_key: &str,
+    ) -> Result<(), String> {
+        self.verify(verifier, public_key).await
+    }
+
+    pub async fn verify_token_for_access(
         &self,
         verifier: &dyn Verifier,
         public_key: &str,
         timestamper: &dyn Timestamper,
     ) -> Result<(), String> {
-        self.verify(verifier, public_key).await?;
+        self.verify_signature(verifier, public_key).await?;
 
         let now = timestamper.now();
         let issued_at = timestamper.parse(&self.issued_at)?;
@@ -250,7 +258,7 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
         let public_key = access_key.public().await?;
 
         access_token
-            .verify_token(access_key.verifier(), &public_key, timestamper)
+            .verify_token_for_access(access_key.verifier(), &public_key, timestamper)
             .await?;
         self.verify(verifier, &access_token.public_key).await?;
 
