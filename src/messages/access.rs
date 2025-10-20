@@ -184,11 +184,28 @@ pub struct AccessRequestPayload<T> {
     pub request: T,
 }
 
+// Helper struct for parsing that keeps request as raw JSON
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct AccessRequestRaw {
+    payload: AccessRequestPayloadRaw,
+    signature: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+struct AccessRequestPayloadRaw {
+    access: AccessRequestAccess,
+    request: Box<serde_json::value::RawValue>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessRequest<T> {
     pub payload: AccessRequestPayload<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+    #[serde(skip)]
+    original_request_string: Option<String>,
 }
 
 impl<T: Serialize + Send + Sync> AccessRequest<T> {
@@ -196,6 +213,7 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
         Self {
             payload,
             signature: None,
+            original_request_string: None,
         }
     }
 
@@ -203,7 +221,15 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
     where
         T: for<'de> Deserialize<'de>,
     {
-        serde_json::from_str(message).map_err(|e| e.to_string())
+        // First parse with RawValue to capture the original request string
+        let raw: AccessRequestRaw = serde_json::from_str(message).map_err(|e| e.to_string())?;
+        let original_request_string = raw.payload.request.get().to_string();
+
+        // Now parse normally
+        let mut request: Self = serde_json::from_str(message).map_err(|e| e.to_string())?;
+        request.original_request_string = Some(original_request_string);
+
+        Ok(request)
     }
 
     pub async fn verify_access<U>(
@@ -273,6 +299,22 @@ impl<T: Serialize + Send + Sync> Signable for AccessRequest<T> {
     }
 
     fn compose_payload(&self) -> Result<String, String> {
-        serde_json::to_string(&self.payload).map_err(|e| e.to_string())
+        // Use the original request string if we have it, otherwise re-serialize
+        let request_str = if let Some(ref original) = self.original_request_string {
+            original.clone()
+        } else {
+            serde_json::to_string(&self.payload.request).map_err(|e| e.to_string())?
+        };
+
+        // Build the payload with the original request string preserved
+        let payload_string = format!(
+            r#"{{"access":{{"nonce":"{}","timestamp":"{}","token":"{}"}},"request":{}}}"#,
+            self.payload.access.nonce,
+            self.payload.access.timestamp,
+            self.payload.access.token,
+            request_str
+        );
+
+        Ok(payload_string)
     }
 }
