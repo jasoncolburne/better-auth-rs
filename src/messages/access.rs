@@ -185,12 +185,14 @@ pub struct AccessRequestPayload<T> {
 }
 
 // Helper struct for parsing that keeps request as raw JSON
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct AccessRequestRaw {
     payload: AccessRequestPayloadRaw,
     signature: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct AccessRequestPayloadRaw {
     access: AccessRequestAccess,
