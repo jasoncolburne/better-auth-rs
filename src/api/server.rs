@@ -545,11 +545,7 @@ impl BetterAuthServer {
 
         let access_public_key = self.crypto.key_pair.access.public().await?;
         token
-            .verify_token(
-                self.crypto.verifier.as_ref(),
-                &access_public_key,
-                self.encoding.timestamper.as_ref(),
-            )
+            .verify_signature(self.crypto.verifier.as_ref(), &access_public_key)
             .await?;
 
         let hash = self
