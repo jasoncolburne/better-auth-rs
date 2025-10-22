@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[derive(Clone)]
 pub struct VerificationKeyStore {
     keys_by_identity: Arc<Mutex<HashMap<String, Secp256r1>>>,
 }

@@ -315,6 +315,11 @@ async fn create_server(
     let auth_key_store = authentication_key_store.unwrap_or_default();
     let rec_hash_store = recovery_hash_store.unwrap_or_default();
 
+    let access_verification_key_store = VerificationKeyStoreImpl::new();
+    access_verification_key_store
+        .add(access_signer.identity().await?, access_signer.clone())
+        .await?;
+
     Ok(BetterAuthServer {
         crypto: BetterAuthServerCrypto {
             hasher: Box::new(hasher),
@@ -336,6 +341,7 @@ async fn create_server(
         },
         store: BetterAuthServerStore {
             access: BetterAuthServerAccessStore {
+                verification_key: Box::new(access_verification_key_store),
                 key_hash: Box::new(access_key_hash_store),
             },
             authentication: BetterAuthServerAuthenticationStore {
