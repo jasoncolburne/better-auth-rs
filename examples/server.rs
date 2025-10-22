@@ -255,6 +255,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server_response_key.generate()?;
     server_access_key.generate()?;
 
+    // Create access key store and add server access key
+    let access_key_store = VerificationKeyStore::new();
+    let server_access_identity = server_access_key.identity().await?;
+    access_key_store
+        .add(server_access_identity, server_access_key.clone())
+        .await?;
+
     // Create BetterAuthServer
     let verifier2 = Secp256r1Verifier::new();
     let timestamper2 = Rfc3339Nano::new();
@@ -281,6 +288,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         store: BetterAuthServerStore {
             access: BetterAuthServerAccessStore {
+                verification_key: Box::new(access_key_store.clone()),
                 key_hash: Box::new(access_key_hash_store),
             },
             authentication: BetterAuthServerAuthenticationStore {
@@ -292,13 +300,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         },
     };
-
-    // Create access key store and add server access key
-    let access_key_store = VerificationKeyStore::new();
-    let server_access_identity = server_access_key.identity().await?;
-    access_key_store
-        .add(server_access_identity, server_access_key)
-        .await?;
 
     // Create AccessVerifier
     let av = AccessVerifier {

@@ -26,6 +26,7 @@ pub struct BetterAuthServerExpiry {
 }
 
 pub struct BetterAuthServerAccessStore {
+    pub verification_key: Box<dyn VerificationKeyStore>,
     pub key_hash: Box<dyn ServerTimeLockStore>,
 }
 
@@ -543,7 +544,13 @@ impl BetterAuthServer {
         let token =
             AccessToken::<T>::parse(token_string, self.encoding.token_encoder.as_ref()).await?;
 
-        let access_public_key = self.crypto.key_pair.access.public().await?;
+        let access_verification_key = self
+            .store
+            .access
+            .verification_key
+            .get(&token.server_identity)
+            .await?;
+        let access_public_key = access_verification_key.public().await?;
         token
             .verify_signature(self.crypto.verifier.as_ref(), &access_public_key)
             .await?;
