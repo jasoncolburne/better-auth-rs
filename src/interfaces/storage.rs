@@ -98,6 +98,9 @@ pub trait ServerAuthenticationKeyStore: Send + Sync {
 
     /// Delete all devices and the record of identity
     async fn delete_identity(&self, identity: String) -> Result<(), String>;
+
+    /// Ensure a device is active (identity exists and device not revoked)
+    async fn ensure_active(&self, identity: String, device: String) -> Result<(), String>;
 }
 
 #[async_trait]
