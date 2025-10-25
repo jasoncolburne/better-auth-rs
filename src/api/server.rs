@@ -564,6 +564,12 @@ impl BetterAuthServer {
             return Err("hash mismatch".to_string());
         }
 
+        self.store
+            .authentication
+            .key
+            .ensure_active(token.identity.clone(), token.device.clone())
+            .await?;
+
         let now = self.encoding.timestamper.now();
         let refresh_expiry = self.encoding.timestamper.parse(&token.refresh_expiry)?;
 

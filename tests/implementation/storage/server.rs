@@ -71,6 +71,21 @@ impl ServerAuthenticationKeyStoreTrait for ServerAuthenticationKeyStore {
         Ok(())
     }
 
+    async fn ensure_active(&self, identity: String, device: String) -> Result<(), String> {
+        let identities = self.identities.lock().await;
+        if !identities.contains(&identity) {
+            return Err("not found".to_string());
+        }
+
+        let data = self.data_by_token.lock().await;
+        let token = format!("{}{}", identity, device);
+        if !data.contains_key(&token) {
+            return Err("not found".to_string());
+        }
+
+        Ok(())
+    }
+
     async fn register(
         &self,
         identity: String,
