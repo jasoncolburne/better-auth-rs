@@ -548,5 +548,8 @@ async fn test_detects_mismatched_access_nonce() {
         .await;
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "incorrect nonce");
+    assert_eq!(
+        result.unwrap_err(),
+        "Response nonce does not match request nonce"
+    );
 }

@@ -1,3 +1,4 @@
+use crate::error::*;
 use crate::interfaces::*;
 use crate::messages::*;
 
@@ -107,7 +108,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.identifier.identity.store(identity).await?;
@@ -146,7 +149,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.key.authentication.rotate().await?;
@@ -197,7 +202,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.identifier.identity.store(identity).await?;
@@ -269,7 +276,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.key.authentication.rotate().await?;
@@ -316,7 +325,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.key.authentication.rotate().await?;
@@ -354,7 +365,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.key.authentication.rotate().await?;
@@ -393,7 +406,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store.key.authentication.rotate().await?;
@@ -424,7 +439,11 @@ impl BetterAuthClient {
         .await?;
 
         if start_response.payload.access.nonce != start_nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(incorrect_nonce_error(
+                Some(&start_nonce),
+                Some(&start_response.payload.access.nonce),
+            )
+            .into());
         }
 
         let (_, current_key, next_key_hash) = self.store.key.access.initialize(None).await?;
@@ -462,7 +481,11 @@ impl BetterAuthClient {
         .await?;
 
         if finish_response.payload.access.nonce != finish_nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(incorrect_nonce_error(
+                Some(&finish_nonce),
+                Some(&finish_response.payload.access.nonce),
+            )
+            .into());
         }
 
         self.store
@@ -503,7 +526,9 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         self.store
@@ -546,7 +571,9 @@ impl BetterAuthClient {
 
         let response = ScannableResponse::parse(&reply)?;
         if response.payload.access.nonce != nonce {
-            return Err("incorrect nonce".to_string());
+            return Err(
+                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
+            );
         }
 
         Ok(reply)
