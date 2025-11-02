@@ -934,7 +934,7 @@ async fn test_rejects_expired_access_tokens() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "token expired");
+    assert_eq!(result.unwrap_err(), "Token has expired");
 }
 
 #[tokio::test]
