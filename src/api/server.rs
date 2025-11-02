@@ -1,3 +1,4 @@
+use crate::error::*;
 use crate::interfaces::*;
 use crate::messages::*;
 use serde::{Deserialize, Serialize};
@@ -85,7 +86,11 @@ impl BetterAuthServer {
             .await?;
 
         if device != request.payload.request.authentication.device {
-            return Err("bad device derivation".to_string());
+            return Err(invalid_device_error(
+                Some(&request.payload.request.authentication.device),
+                Some(&device),
+            )
+            .into());
         }
 
         self.store
@@ -181,7 +186,11 @@ impl BetterAuthServer {
             .await?;
 
         if device != request.payload.request.authentication.device {
-            return Err("bad device derivation".to_string());
+            return Err(invalid_device_error(
+                Some(&request.payload.request.authentication.device),
+                Some(&device),
+            )
+            .into());
         }
 
         let hash = self
@@ -253,7 +262,11 @@ impl BetterAuthServer {
         if link_container.payload.authentication.identity
             != request.payload.request.authentication.identity
         {
-            return Err("mismatched identities".to_string());
+            return Err(mismatched_identities_error(
+                Some(&link_container.payload.authentication.identity),
+                Some(&request.payload.request.authentication.identity),
+            )
+            .into());
         }
 
         let device = self
@@ -267,7 +280,11 @@ impl BetterAuthServer {
             .await?;
 
         if device != link_container.payload.authentication.device {
-            return Err("bad device derivation".to_string());
+            return Err(invalid_device_error(
+                Some(&link_container.payload.authentication.device),
+                Some(&device),
+            )
+            .into());
         }
 
         self.store
@@ -561,7 +578,12 @@ impl BetterAuthServer {
             .sum(&request.payload.request.access.public_key)
             .await?;
         if hash != token.rotation_hash {
-            return Err("hash mismatch".to_string());
+            return Err(invalid_hash_error(
+                Some(&token.rotation_hash),
+                Some(&hash),
+                Some("rotation"),
+            )
+            .into());
         }
 
         self.store
@@ -574,7 +596,13 @@ impl BetterAuthServer {
         let refresh_expiry = self.encoding.timestamper.parse(&token.refresh_expiry)?;
 
         if self.encoding.timestamper.compare(now, refresh_expiry) == std::cmp::Ordering::Greater {
-            return Err("refresh has expired".to_string());
+            let now_str = self.encoding.timestamper.format(now);
+            return Err(expired_token_error(
+                Some(&token.refresh_expiry),
+                Some(&now_str),
+                Some("refresh"),
+            )
+            .into());
         }
 
         self.store.access.key_hash.reserve(hash).await?;

@@ -2,6 +2,10 @@ use crate::interfaces::{
     ServerTimeLockStore, Timestamper, TokenEncoder, VerificationKeyStore, Verifier,
 };
 use crate::messages::{Serializable, Signable};
+use crate::{
+    expired_token_error, future_request_error, future_token_error, invalid_message_error,
+    stale_request_error,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -62,7 +66,9 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         let public_key_length = token_encoder.signature_length(message).await?;
 
         if message.len() < public_key_length {
-            return Err("message too short".to_string());
+            return Err(
+                invalid_message_error(Some("message"), Some("too short for signature")).into(),
+            );
         }
 
         let signature = message[..public_key_length].to_string();
@@ -107,11 +113,19 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         let expiry = timestamper.parse(&self.expiry)?;
 
         if timestamper.compare(now, issued_at) == Ordering::Less {
-            return Err("token from future".to_string());
+            let now_str = timestamper.format(now);
+            let diff = issued_at.duration_since(now).map_err(|e| e.to_string())?;
+            let seconds = diff.as_secs_f64();
+            return Err(
+                future_token_error(Some(&self.issued_at), Some(&now_str), Some(seconds)).into(),
+            );
         }
 
         if timestamper.compare(now, expiry) == Ordering::Greater {
-            return Err("token expired".to_string());
+            let now_str = timestamper.format(now);
+            return Err(
+                expired_token_error(Some(&self.expiry), Some(&now_str), Some("access")).into(),
+            );
         }
 
         Ok(())
@@ -122,7 +136,7 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
 impl<T: Serialize + Send + Sync> Serializable for AccessToken<T> {
     async fn to_json(&self) -> Result<String, String> {
         if self.signature.is_none() {
-            return Err("null signature".to_string());
+            return Err(invalid_message_error(Some("signature"), Some("signature is null")).into());
         }
         serde_json::to_string(self).map_err(|e| e.to_string())
     }
@@ -267,11 +281,26 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
         let expiry = timestamper.add_seconds(access_time, nonce_store.lifetime_in_seconds());
 
         if timestamper.compare(now, expiry) == Ordering::Greater {
-            return Err("stale request".to_string());
+            let now_str = timestamper.format(now);
+            let expiry_str = timestamper.format(expiry);
+            let diff = now.duration_since(expiry).map_err(|e| e.to_string())?;
+            let seconds = diff.as_secs();
+            return Err(
+                stale_request_error(Some(&expiry_str), Some(&now_str), Some(seconds)).into(),
+            );
         }
 
         if timestamper.compare(now, access_time) == Ordering::Less {
-            return Err("request from future".to_string());
+            let now_str = timestamper.format(now);
+            let access_time_str = timestamper.format(access_time);
+            let diff = access_time.duration_since(now).map_err(|e| e.to_string())?;
+            let seconds = diff.as_secs_f64();
+            return Err(future_request_error(
+                Some(&access_time_str),
+                Some(&now_str),
+                Some(seconds),
+            )
+            .into());
         }
 
         nonce_store
@@ -286,7 +315,7 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
 impl<T: Serialize + Send + Sync> Serializable for AccessRequest<T> {
     async fn to_json(&self) -> Result<String, String> {
         if self.signature.is_none() {
-            return Err("null signature".to_string());
+            return Err(invalid_message_error(Some("signature"), Some("signature is null")).into());
         }
         serde_json::to_string(self).map_err(|e| e.to_string())
     }

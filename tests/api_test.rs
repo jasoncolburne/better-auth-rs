@@ -872,7 +872,7 @@ async fn test_rejects_expired_refresh_tokens() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "refresh has expired");
+    assert_eq!(result.unwrap_err(), "Token has expired");
 }
 
 #[tokio::test]
@@ -934,7 +934,7 @@ async fn test_rejects_expired_access_tokens() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "token expired");
+    assert_eq!(result.unwrap_err(), "Token has expired");
 }
 
 #[tokio::test]
@@ -1070,5 +1070,8 @@ async fn test_detects_mismatched_access_nonce() {
         .await;
 
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "incorrect nonce");
+    assert_eq!(
+        result.unwrap_err(),
+        "Response nonce does not match request nonce"
+    );
 }

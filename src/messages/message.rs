@@ -1,4 +1,5 @@
 use crate::interfaces::{SigningKey, Verifier};
+use crate::invalid_message_error;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +26,8 @@ pub trait Signable: Serializable {
     async fn verify(&self, verifier: &dyn Verifier, public_key: &str) -> Result<(), String> {
         let signature = self
             .get_signature()
-            .ok_or_else(|| "null signature".to_string())?;
+            .ok_or(invalid_message_error(Some("signature"), Some("null signature")).to_string())?;
+
         let payload = self.compose_payload()?;
 
         verifier.verify(&payload, signature, public_key).await
