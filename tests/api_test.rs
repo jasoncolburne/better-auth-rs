@@ -14,8 +14,8 @@ mod implementation;
 // Import implementation types with explicit names to avoid conflicts
 use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
-    Hasher as HasherImpl, IdentityVerifier as IdentityVerifierImpl, Noncer as NoncerImpl,
-    Rfc3339Nano, Secp256r1, Secp256r1Verifier, ServerAuthenticationKeyStore as AuthKeyStoreImpl,
+    Hasher as HasherImpl, IdentityVerifier as IdentityVerifierImpl, Noncer as NoncerImpl, Rfc3339,
+    Secp256r1, Secp256r1Verifier, ServerAuthenticationKeyStore as AuthKeyStoreImpl,
     ServerAuthenticationNonceStore as AuthNonceStoreImpl,
     ServerRecoveryHashStore as RecoveryHashStoreImpl, ServerTimeLockStore as TimeLockStoreImpl,
     TokenEncoder as TokenEncoderImpl, VerificationKeyStore as VerificationKeyStoreImpl,
@@ -332,7 +332,7 @@ async fn create_server(
         },
         encoding: BetterAuthServerEncoding {
             identity_verifier: Box::new(IdentityVerifierImpl::new()),
-            timestamper: Box::new(Rfc3339Nano::new()),
+            timestamper: Box::new(Rfc3339::new()),
             token_encoder: Box::new(TokenEncoderImpl::new()),
         },
         expiry: BetterAuthServerExpiry {
@@ -373,7 +373,7 @@ async fn create_verifier(
         },
         encoding: AccessVerifierEncoding {
             token_encoder: Box::new(TokenEncoderImpl::new()),
-            timestamper: Box::new(Rfc3339Nano::new()),
+            timestamper: Box::new(Rfc3339::new()),
         },
         store: AccessVerifierStore {
             access: AccessVerifierAccessStore {
@@ -446,7 +446,7 @@ async fn create_client(
             noncer: Box::new(noncer),
         },
         encoding: BetterAuthClientEncoding {
-            timestamper: Box::new(Rfc3339Nano::new()),
+            timestamper: Box::new(Rfc3339::new()),
         },
         io: BetterAuthClientIo {
             network: Box::new(mock_network_server),

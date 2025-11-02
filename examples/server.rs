@@ -18,7 +18,7 @@ use better_auth::messages::{Serializable, Signable};
 mod implementation;
 
 use implementation::{
-    Hasher, IdentityVerifier, Noncer, Rfc3339Nano, Secp256r1, Secp256r1Verifier,
+    Hasher, IdentityVerifier, Noncer, Rfc3339, Secp256r1, Secp256r1Verifier,
     ServerAuthenticationKeyStore, ServerAuthenticationNonceStore, ServerRecoveryHashStore,
     ServerTimeLockStore, TokenEncoder, VerificationKeyStore,
 };
@@ -245,7 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Encoding components
     let identity_verifier = IdentityVerifier::new();
-    let timestamper = Rfc3339Nano::new();
+    let timestamper = Rfc3339::new();
     let token_encoder = TokenEncoder::new();
 
     // Generate server keys
@@ -264,7 +264,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create BetterAuthServer
     let verifier2 = Secp256r1Verifier::new();
-    let timestamper2 = Rfc3339Nano::new();
+    let timestamper2 = Rfc3339::new();
     let token_encoder2 = TokenEncoder::new();
 
     let ba = BetterAuthServer {
