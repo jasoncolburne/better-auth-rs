@@ -16,7 +16,7 @@ mod implementation;
 
 use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
-    Hasher as HasherImpl, Noncer as NoncerImpl, Rfc3339Nano, Secp256r1, Secp256r1Verifier,
+    Hasher as HasherImpl, Noncer as NoncerImpl, Rfc3339, Secp256r1, Secp256r1Verifier,
 };
 
 const DEBUG_LOGGING: bool = false;
@@ -246,7 +246,7 @@ async fn create_client(
             noncer: Box::new(noncer),
         },
         encoding: BetterAuthClientEncoding {
-            timestamper: Box::new(Rfc3339Nano::new()),
+            timestamper: Box::new(Rfc3339::new()),
         },
         io: BetterAuthClientIo {
             network: Box::new(HttpNetwork::new("http://localhost:8080".to_string())),
