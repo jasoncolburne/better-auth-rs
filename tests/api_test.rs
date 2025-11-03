@@ -12,6 +12,42 @@ use serde::{Deserialize, Serialize};
 
 mod implementation;
 
+// Custom error type for tests
+#[derive(Debug)]
+enum TestError {
+    Serialization(String),
+    Signature(String),
+    Network(String),
+}
+
+impl std::fmt::Display for TestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            TestError::Serialization(e) => write!(f, "Serialization error: {}", e),
+            TestError::Signature(e) => write!(f, "Signature error: {}", e),
+            TestError::Network(e) => write!(f, "Network error: {}", e),
+        }
+    }
+}
+
+impl From<String> for TestError {
+    fn from(s: String) -> Self {
+        TestError::Network(s)
+    }
+}
+
+impl From<TestError> for BetterAuthError {
+    fn from(err: TestError) -> BetterAuthError {
+        match err {
+            TestError::Serialization(e) => {
+                BetterAuthError::new("TEST001", format!("Serialization: {}", e))
+            }
+            TestError::Signature(e) => BetterAuthError::new("TEST002", format!("Signature: {}", e)),
+            TestError::Network(e) => BetterAuthError::new("TEST003", format!("Network: {}", e)),
+        }
+    }
+}
+
 // Import implementation types with explicit names to avoid conflicts
 use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
@@ -65,12 +101,11 @@ impl FakeResponse {
 
 #[async_trait]
 impl Serializable for FakeResponse {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = TestError;
+
+    async fn to_json(&self) -> Result<String, TestError> {
         if self.signature.is_none() {
-            return Err(invalid_message_error(
-                Some("signature"),
-                Some("null signature"),
-            ));
+            return Err(TestError::Signature("null signature".to_string()));
         }
         #[derive(Serialize)]
         struct FakeResponseSerialized<'a> {
@@ -81,7 +116,7 @@ impl Serializable for FakeResponse {
             payload: &self.payload,
             signature: self.signature.as_ref(),
         })
-        .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
+        .map_err(|e| TestError::Serialization(e.to_string()))
     }
 }
 
@@ -99,9 +134,8 @@ impl Signable for FakeResponse {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError> {
-        serde_json::to_string(&self.payload)
-            .map_err(|e| invalid_message_error(Some("payload_serialization"), Some(&e.to_string())))
+    fn compose_payload(&self) -> Result<String, TestError> {
+        serde_json::to_string(&self.payload).map_err(|e| TestError::Serialization(e.to_string()))
     }
 }
 

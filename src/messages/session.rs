@@ -52,7 +52,9 @@ impl RequestSessionRequest {
 
 #[async_trait]
 impl Serializable for RequestSessionRequest {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = BetterAuthError;
+
+    async fn to_json(&self) -> Result<String, Self::Error> {
         serde_json::to_string(self)
             .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
     }

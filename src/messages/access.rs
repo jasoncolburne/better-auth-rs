@@ -146,7 +146,9 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
 
 #[async_trait]
 impl<T: Serialize + Send + Sync> Serializable for AccessToken<T> {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = BetterAuthError;
+
+    async fn to_json(&self) -> Result<String, Self::Error> {
         if self.signature.is_none() {
             return Err(invalid_message_error(
                 Some("signature"),
@@ -172,7 +174,7 @@ impl<T: Serialize + Send + Sync> Signable for AccessToken<T> {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError> {
+    fn compose_payload(&self) -> Result<String, Self::Error> {
         #[derive(Serialize)]
         struct Payload<'a, T> {
             #[serde(rename = "serverIdentity")]
@@ -333,7 +335,9 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
 
 #[async_trait]
 impl<T: Serialize + Send + Sync> Serializable for AccessRequest<T> {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = BetterAuthError;
+
+    async fn to_json(&self) -> Result<String, Self::Error> {
         if self.signature.is_none() {
             return Err(invalid_message_error(
                 Some("signature"),
@@ -359,7 +363,7 @@ impl<T: Serialize + Send + Sync> Signable for AccessRequest<T> {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError> {
+    fn compose_payload(&self) -> Result<String, Self::Error> {
         // Use the original request string if we have it, otherwise re-serialize
         let request_str = if let Some(ref original) = self.original_request_string {
             original.clone()

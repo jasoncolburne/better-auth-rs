@@ -44,7 +44,9 @@ impl<T: Serialize + Send + Sync> ClientRequest<T> {
 
 #[async_trait]
 impl<T: Serialize + Send + Sync> Serializable for ClientRequest<T> {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = BetterAuthError;
+
+    async fn to_json(&self) -> Result<String, Self::Error> {
         if self.signature.is_none() {
             return Err(invalid_message_error(
                 Some("signature"),
@@ -70,7 +72,7 @@ impl<T: Serialize + Send + Sync> Signable for ClientRequest<T> {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError> {
+    fn compose_payload(&self) -> Result<String, Self::Error> {
         serde_json::to_string(&self.payload)
             .map_err(|e| invalid_message_error(Some("payload_serialization"), Some(&e.to_string())))
     }

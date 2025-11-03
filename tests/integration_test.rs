@@ -15,6 +15,46 @@ use tokio::sync::Mutex;
 
 mod implementation;
 
+// Custom error type for integration tests
+#[derive(Debug)]
+enum IntegrationError {
+    Serialization(String),
+    Signature(String),
+    Network(String),
+}
+
+impl std::fmt::Display for IntegrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            IntegrationError::Serialization(e) => write!(f, "Serialization error: {}", e),
+            IntegrationError::Signature(e) => write!(f, "Signature error: {}", e),
+            IntegrationError::Network(e) => write!(f, "Network error: {}", e),
+        }
+    }
+}
+
+impl From<String> for IntegrationError {
+    fn from(s: String) -> Self {
+        IntegrationError::Network(s)
+    }
+}
+
+impl From<IntegrationError> for BetterAuthError {
+    fn from(err: IntegrationError) -> BetterAuthError {
+        match err {
+            IntegrationError::Serialization(e) => {
+                BetterAuthError::new("INT001", format!("Serialization: {}", e))
+            }
+            IntegrationError::Signature(e) => {
+                BetterAuthError::new("INT002", format!("Signature: {}", e))
+            }
+            IntegrationError::Network(e) => {
+                BetterAuthError::new("INT003", format!("Network: {}", e))
+            }
+        }
+    }
+}
+
 use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
     Hasher as HasherImpl, Noncer as NoncerImpl, Rfc3339, Secp256r1, Secp256r1Verifier,
@@ -115,9 +155,11 @@ impl FakeResponse {
 
 #[async_trait]
 impl Serializable for FakeResponse {
-    async fn to_json(&self) -> Result<String, BetterAuthError> {
+    type Error = IntegrationError;
+
+    async fn to_json(&self) -> Result<String, IntegrationError> {
         if self.signature.is_none() {
-            return Err("null signature".to_string().into());
+            return Err(IntegrationError::Signature("null signature".to_string()));
         }
         #[derive(Serialize)]
         struct FakeResponseSerialized<'a> {
@@ -128,7 +170,7 @@ impl Serializable for FakeResponse {
             payload: &self.payload,
             signature: self.signature.as_ref(),
         })
-        .map_err(|e| e.to_string().into())
+        .map_err(|e| IntegrationError::Serialization(e.to_string()))
     }
 }
 
@@ -146,8 +188,9 @@ impl Signable for FakeResponse {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError> {
-        serde_json::to_string(&self.payload).map_err(|e| e.to_string().into())
+    fn compose_payload(&self) -> Result<String, IntegrationError> {
+        serde_json::to_string(&self.payload)
+            .map_err(|e| IntegrationError::Serialization(e.to_string()))
     }
 }
 

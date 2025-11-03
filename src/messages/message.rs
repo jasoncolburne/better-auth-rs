@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 
 #[async_trait]
 pub trait Serializable: Send + Sync {
-    async fn to_json(&self) -> Result<String, BetterAuthError>;
+    type Error: Into<BetterAuthError> + From<String> + Send;
+
+    async fn to_json(&self) -> Result<String, Self::Error>;
 }
 
 #[async_trait]
@@ -15,10 +17,10 @@ pub trait Signable: Serializable {
     fn get_signature(&self) -> Option<&String>;
     fn set_signature(&mut self, signature: String);
 
-    fn compose_payload(&self) -> Result<String, BetterAuthError>;
+    fn compose_payload(&self) -> Result<String, Self::Error>;
 
     async fn sign(&mut self, signer: &dyn SigningKey) -> Result<(), BetterAuthError> {
-        let payload = self.compose_payload()?;
+        let payload = self.compose_payload().map_err(|e| e.into())?;
         let signature = signer.sign(&payload).await?;
         self.set_signature(signature);
         Ok(())
@@ -34,7 +36,7 @@ pub trait Signable: Serializable {
             Some("null signature"),
         ))?;
 
-        let payload = self.compose_payload()?;
+        let payload = self.compose_payload().map_err(|e| e.into())?;
 
         Ok(verifier.verify(&payload, signature, public_key).await?)
     }
