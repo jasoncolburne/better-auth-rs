@@ -1,3 +1,4 @@
+use crate::error::BetterAuthError;
 use crate::interfaces::{SigningKey, Verifier};
 use crate::invalid_message_error;
 use async_trait::async_trait;
@@ -5,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[async_trait]
 pub trait Serializable: Send + Sync {
-    async fn to_json(&self) -> Result<String, String>;
+    async fn to_json(&self) -> Result<String, BetterAuthError>;
 }
 
 #[async_trait]
@@ -14,23 +15,28 @@ pub trait Signable: Serializable {
     fn get_signature(&self) -> Option<&String>;
     fn set_signature(&mut self, signature: String);
 
-    fn compose_payload(&self) -> Result<String, String>;
+    fn compose_payload(&self) -> Result<String, BetterAuthError>;
 
-    async fn sign(&mut self, signer: &dyn SigningKey) -> Result<(), String> {
+    async fn sign(&mut self, signer: &dyn SigningKey) -> Result<(), BetterAuthError> {
         let payload = self.compose_payload()?;
         let signature = signer.sign(&payload).await?;
         self.set_signature(signature);
         Ok(())
     }
 
-    async fn verify(&self, verifier: &dyn Verifier, public_key: &str) -> Result<(), String> {
-        let signature = self
-            .get_signature()
-            .ok_or(invalid_message_error(Some("signature"), Some("null signature")).to_string())?;
+    async fn verify(
+        &self,
+        verifier: &dyn Verifier,
+        public_key: &str,
+    ) -> Result<(), BetterAuthError> {
+        let signature = self.get_signature().ok_or(invalid_message_error(
+            Some("signature"),
+            Some("null signature"),
+        ))?;
 
         let payload = self.compose_payload()?;
 
-        verifier.verify(&payload, signature, public_key).await
+        Ok(verifier.verify(&payload, signature, public_key).await?)
     }
 }
 

@@ -54,7 +54,7 @@ pub struct BetterAuthServer {
 }
 
 impl BetterAuthServer {
-    pub async fn create_account(&self, message: &str) -> Result<String, String> {
+    pub async fn create_account(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = CreateAccountRequest::parse(message)?;
         request
             .verify(
@@ -89,8 +89,7 @@ impl BetterAuthServer {
             return Err(invalid_device_error(
                 Some(&request.payload.request.authentication.device),
                 Some(&device),
-            )
-            .into());
+            ));
         }
 
         self.store
@@ -127,7 +126,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn delete_account(&self, message: &str) -> Result<String, String> {
+    pub async fn delete_account(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = DeleteAccountRequest::parse(message)?;
         request
             .verify(
@@ -166,7 +165,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn recover_account(&self, message: &str) -> Result<String, String> {
+    pub async fn recover_account(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = RecoverAccountRequest::parse(message)?;
         request
             .verify(
@@ -189,8 +188,7 @@ impl BetterAuthServer {
             return Err(invalid_device_error(
                 Some(&request.payload.request.authentication.device),
                 Some(&device),
-            )
-            .into());
+            ));
         }
 
         let hash = self
@@ -240,7 +238,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn link_device(&self, message: &str) -> Result<String, String> {
+    pub async fn link_device(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = LinkDeviceRequest::parse(message)?;
 
         request
@@ -265,8 +263,7 @@ impl BetterAuthServer {
             return Err(mismatched_identities_error(
                 Some(&link_container.payload.authentication.identity),
                 Some(&request.payload.request.authentication.identity),
-            )
-            .into());
+            ));
         }
 
         let device = self
@@ -283,8 +280,7 @@ impl BetterAuthServer {
             return Err(invalid_device_error(
                 Some(&link_container.payload.authentication.device),
                 Some(&device),
-            )
-            .into());
+            ));
         }
 
         self.store
@@ -323,7 +319,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn unlink_device(&self, message: &str) -> Result<String, String> {
+    pub async fn unlink_device(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = UnlinkDeviceRequest::parse(message)?;
 
         request
@@ -366,7 +362,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn rotate_device(&self, message: &str) -> Result<String, String> {
+    pub async fn rotate_device(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = RotateDeviceRequest::parse(message)?;
 
         request
@@ -400,7 +396,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn change_recovery_key(&self, message: &str) -> Result<String, String> {
+    pub async fn change_recovery_key(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = ChangeRecoveryKeyRequest::parse(message)?;
 
         request
@@ -443,7 +439,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn request_session(&self, message: &str) -> Result<String, String> {
+    pub async fn request_session(&self, message: &str) -> Result<String, BetterAuthError> {
         let request = RequestSessionRequest::parse(message)?;
 
         let nonce = self
@@ -472,7 +468,7 @@ impl BetterAuthServer {
         &self,
         message: &str,
         attributes: T,
-    ) -> Result<String, String> {
+    ) -> Result<String, BetterAuthError> {
         let request = CreateSessionRequest::parse(message)?;
 
         let identity = self
@@ -544,7 +540,7 @@ impl BetterAuthServer {
         response.to_json().await
     }
 
-    pub async fn refresh_session<T>(&self, message: &str) -> Result<String, String>
+    pub async fn refresh_session<T>(&self, message: &str) -> Result<String, BetterAuthError>
     where
         T: for<'de> Deserialize<'de> + Serialize + Send + Sync,
     {
@@ -582,8 +578,7 @@ impl BetterAuthServer {
                 Some(&token.rotation_hash),
                 Some(&hash),
                 Some("rotation"),
-            )
-            .into());
+            ));
         }
 
         self.store
@@ -601,8 +596,7 @@ impl BetterAuthServer {
                 Some(&token.refresh_expiry),
                 Some(&now_str),
                 Some("refresh"),
-            )
-            .into());
+            ));
         }
 
         self.store.access.key_hash.reserve(hash).await?;
@@ -676,7 +670,10 @@ pub struct AccessVerifier {
 }
 
 impl AccessVerifier {
-    pub async fn verify<T, U>(&self, message: &str) -> Result<(T, AccessToken<U>, String), String>
+    pub async fn verify<T, U>(
+        &self,
+        message: &str,
+    ) -> Result<(T, AccessToken<U>, String), BetterAuthError>
     where
         T: for<'de> Deserialize<'de> + Serialize + Send + Sync,
         U: for<'de> Deserialize<'de> + Serialize + Send + Sync,

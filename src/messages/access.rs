@@ -1,3 +1,4 @@
+use crate::error::BetterAuthError;
 use crate::interfaces::{
     ServerTimeLockStore, Timestamper, TokenEncoder, VerificationKeyStore, Verifier,
 };
@@ -59,16 +60,20 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         }
     }
 
-    pub async fn parse(message: &str, token_encoder: &dyn TokenEncoder) -> Result<Self, String>
+    pub async fn parse(
+        message: &str,
+        token_encoder: &dyn TokenEncoder,
+    ) -> Result<Self, BetterAuthError>
     where
         T: for<'de> Deserialize<'de>,
     {
         let public_key_length = token_encoder.signature_length(message).await?;
 
         if message.len() < public_key_length {
-            return Err(
-                invalid_message_error(Some("message"), Some("too short for signature")).into(),
-            );
+            return Err(invalid_message_error(
+                Some("message"),
+                Some("too short for signature"),
+            ));
         }
 
         let signature = message[..public_key_length].to_string();
@@ -85,8 +90,11 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
     pub async fn serialize_token(
         &self,
         token_encoder: &dyn TokenEncoder,
-    ) -> Result<String, String> {
-        let signature = self.signature.as_ref().ok_or("missing signature")?;
+    ) -> Result<String, BetterAuthError> {
+        let signature = self
+            .signature
+            .as_ref()
+            .ok_or_else(|| invalid_message_error(Some("signature"), Some("missing signature")))?;
         let payload = self.compose_payload()?;
         let token = token_encoder.encode(&payload).await?;
         Ok(format!("{}{}", signature, token))
@@ -96,7 +104,7 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         &self,
         verifier: &dyn Verifier,
         public_key: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), BetterAuthError> {
         self.verify(verifier, public_key).await
     }
 
@@ -105,7 +113,7 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
         verifier: &dyn Verifier,
         public_key: &str,
         timestamper: &dyn Timestamper,
-    ) -> Result<(), String> {
+    ) -> Result<(), BetterAuthError> {
         self.verify_signature(verifier, public_key).await?;
 
         let now = timestamper.now();
@@ -116,16 +124,20 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
             let now_str = timestamper.format(now);
             let diff = issued_at.duration_since(now).map_err(|e| e.to_string())?;
             let seconds = diff.as_secs_f64();
-            return Err(
-                future_token_error(Some(&self.issued_at), Some(&now_str), Some(seconds)).into(),
-            );
+            return Err(future_token_error(
+                Some(&self.issued_at),
+                Some(&now_str),
+                Some(seconds),
+            ));
         }
 
         if timestamper.compare(now, expiry) == Ordering::Greater {
             let now_str = timestamper.format(now);
-            return Err(
-                expired_token_error(Some(&self.expiry), Some(&now_str), Some("access")).into(),
-            );
+            return Err(expired_token_error(
+                Some(&self.expiry),
+                Some(&now_str),
+                Some("access"),
+            ));
         }
 
         Ok(())
@@ -134,11 +146,15 @@ impl<T: Serialize + Send + Sync> AccessToken<T> {
 
 #[async_trait]
 impl<T: Serialize + Send + Sync> Serializable for AccessToken<T> {
-    async fn to_json(&self) -> Result<String, String> {
+    async fn to_json(&self) -> Result<String, BetterAuthError> {
         if self.signature.is_none() {
-            return Err(invalid_message_error(Some("signature"), Some("signature is null")).into());
+            return Err(invalid_message_error(
+                Some("signature"),
+                Some("signature is null"),
+            ));
         }
-        serde_json::to_string(self).map_err(|e| e.to_string())
+        serde_json::to_string(self)
+            .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
     }
 }
 
@@ -156,7 +172,7 @@ impl<T: Serialize + Send + Sync> Signable for AccessToken<T> {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, String> {
+    fn compose_payload(&self) -> Result<String, BetterAuthError> {
         #[derive(Serialize)]
         struct Payload<'a, T> {
             #[serde(rename = "serverIdentity")]
@@ -187,7 +203,8 @@ impl<T: Serialize + Send + Sync> Signable for AccessToken<T> {
             attributes: &self.attributes,
         };
 
-        serde_json::to_string(&payload).map_err(|e| e.to_string())
+        serde_json::to_string(&payload)
+            .map_err(|e| invalid_message_error(Some("payload_serialization"), Some(&e.to_string())))
     }
 }
 
@@ -239,16 +256,18 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
         }
     }
 
-    pub fn parse(message: &str) -> Result<Self, String>
+    pub fn parse(message: &str) -> Result<Self, BetterAuthError>
     where
         T: for<'de> Deserialize<'de>,
     {
         // First parse with RawValue to capture the original request string
-        let raw: AccessRequestRaw = serde_json::from_str(message).map_err(|e| e.to_string())?;
+        let raw: AccessRequestRaw = serde_json::from_str(message)
+            .map_err(|e| invalid_message_error(Some("message"), Some(&e.to_string())))?;
         let original_request_string = raw.payload.request.get().to_string();
 
         // Now parse normally
-        let mut request: Self = serde_json::from_str(message).map_err(|e| e.to_string())?;
+        let mut request: Self = serde_json::from_str(message)
+            .map_err(|e| invalid_message_error(Some("message"), Some(&e.to_string())))?;
         request.original_request_string = Some(original_request_string);
 
         Ok(request)
@@ -261,7 +280,7 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
         access_key_store: &dyn VerificationKeyStore,
         token_encoder: &dyn TokenEncoder,
         timestamper: &dyn Timestamper,
-    ) -> Result<AccessToken<U>, String>
+    ) -> Result<AccessToken<U>, BetterAuthError>
     where
         U: for<'de> Deserialize<'de> + Serialize + Send + Sync,
     {
@@ -285,9 +304,11 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
             let expiry_str = timestamper.format(expiry);
             let diff = now.duration_since(expiry).map_err(|e| e.to_string())?;
             let seconds = diff.as_secs();
-            return Err(
-                stale_request_error(Some(&expiry_str), Some(&now_str), Some(seconds)).into(),
-            );
+            return Err(stale_request_error(
+                Some(&expiry_str),
+                Some(&now_str),
+                Some(seconds),
+            ));
         }
 
         if timestamper.compare(now, access_time) == Ordering::Less {
@@ -299,8 +320,7 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
                 Some(&access_time_str),
                 Some(&now_str),
                 Some(seconds),
-            )
-            .into());
+            ));
         }
 
         nonce_store
@@ -313,11 +333,15 @@ impl<T: Serialize + Send + Sync> AccessRequest<T> {
 
 #[async_trait]
 impl<T: Serialize + Send + Sync> Serializable for AccessRequest<T> {
-    async fn to_json(&self) -> Result<String, String> {
+    async fn to_json(&self) -> Result<String, BetterAuthError> {
         if self.signature.is_none() {
-            return Err(invalid_message_error(Some("signature"), Some("signature is null")).into());
+            return Err(invalid_message_error(
+                Some("signature"),
+                Some("signature is null"),
+            ));
         }
-        serde_json::to_string(self).map_err(|e| e.to_string())
+        serde_json::to_string(self)
+            .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
     }
 }
 
@@ -335,12 +359,14 @@ impl<T: Serialize + Send + Sync> Signable for AccessRequest<T> {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, String> {
+    fn compose_payload(&self) -> Result<String, BetterAuthError> {
         // Use the original request string if we have it, otherwise re-serialize
         let request_str = if let Some(ref original) = self.original_request_string {
             original.clone()
         } else {
-            serde_json::to_string(&self.payload.request).map_err(|e| e.to_string())?
+            serde_json::to_string(&self.payload.request).map_err(|e| {
+                invalid_message_error(Some("request_serialization"), Some(&e.to_string()))
+            })?
         };
 
         // Build the payload with the original request string preserved

@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 use better_auth::api::*;
+use better_auth::error::BetterAuthError;
 use better_auth::interfaces::{
     AccountPaths, AuthenticationPaths as AuthPaths, ClientValueStore as ClientValueStoreTrait,
     DevicePaths, Hasher as HasherTrait, Network as NetworkTrait, RecoveryPaths, SessionPaths,
     VerificationKey as VerificationKeyTrait, VerificationKeyStore as VerificationKeyStoreTrait,
 };
 use better_auth::messages::*;
-use better_auth::{Serializable, Signable, SigningKey};
+use better_auth::{Serializable, Signable, SigningKey, invalid_message_error};
 use serde::{Deserialize, Serialize};
 
 mod implementation;
@@ -50,9 +51,9 @@ struct FakeResponse {
 }
 
 impl FakeResponse {
-    fn parse(message: &str) -> Result<Self, String> {
-        let parsed: ServerResponse<FakeResponseData> =
-            serde_json::from_str(message).map_err(|e| e.to_string())?;
+    fn parse(message: &str) -> Result<Self, BetterAuthError> {
+        let parsed: ServerResponse<FakeResponseData> = serde_json::from_str(message)
+            .map_err(|e| invalid_message_error(Some("message"), Some(&e.to_string())))?;
         let payload_json = serde_json::to_value(&parsed.payload).ok();
         Ok(Self {
             payload: parsed.payload,
@@ -64,9 +65,12 @@ impl FakeResponse {
 
 #[async_trait]
 impl Serializable for FakeResponse {
-    async fn to_json(&self) -> Result<String, String> {
+    async fn to_json(&self) -> Result<String, BetterAuthError> {
         if self.signature.is_none() {
-            return Err("null signature".to_string());
+            return Err(invalid_message_error(
+                Some("signature"),
+                Some("null signature"),
+            ));
         }
         #[derive(Serialize)]
         struct FakeResponseSerialized<'a> {
@@ -77,7 +81,7 @@ impl Serializable for FakeResponse {
             payload: &self.payload,
             signature: self.signature.as_ref(),
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
     }
 }
 
@@ -95,8 +99,9 @@ impl Signable for FakeResponse {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, String> {
-        serde_json::to_string(&self.payload).map_err(|e| e.to_string())
+    fn compose_payload(&self) -> Result<String, BetterAuthError> {
+        serde_json::to_string(&self.payload)
+            .map_err(|e| invalid_message_error(Some("payload_serialization"), Some(&e.to_string())))
     }
 }
 
@@ -121,7 +126,7 @@ impl MockNetworkServer {
         &self,
         message: &str,
         nonce: Option<String>,
-    ) -> Result<String, String> {
+    ) -> Result<String, BetterAuthError> {
         let request = AccessRequest::<FakeRequestData>::parse(message)?;
 
         let reply_nonce = nonce.unwrap_or_else(|| request.payload.access.nonce.clone());
@@ -143,40 +148,57 @@ impl MockNetworkServer {
 
     async fn _send_request(&self, path: &str, message: &str) -> Result<String, String> {
         match path {
-            p if p == self.account_create_path => {
-                self.better_auth_server.create_account(message).await
-            }
-            p if p == self.account_recover_path => {
-                self.better_auth_server.recover_account(message).await
-            }
-            p if p == self.device_link_path => self.better_auth_server.link_device(message).await,
-            p if p == self.device_rotate_path => {
-                self.better_auth_server.rotate_device(message).await
-            }
-            p if p == self.session_request_path => {
-                self.better_auth_server.request_session(message).await
-            }
-            p if p == self.session_create_path => {
-                self.better_auth_server
-                    .create_session(message, self.attributes.clone())
-                    .await
-            }
-            p if p == self.session_refresh_path => {
-                self.better_auth_server
-                    .refresh_session::<MockAccessAttributes>(message)
-                    .await
-            }
-            p if p == self.device_unlink_path => {
-                self.better_auth_server.unlink_device(message).await
-            }
-            p if p == self.recovery_change_path => {
-                self.better_auth_server.change_recovery_key(message).await
-            }
+            p if p == self.account_create_path => self
+                .better_auth_server
+                .create_account(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.account_recover_path => self
+                .better_auth_server
+                .recover_account(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.device_link_path => self
+                .better_auth_server
+                .link_device(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.device_rotate_path => self
+                .better_auth_server
+                .rotate_device(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.session_request_path => self
+                .better_auth_server
+                .request_session(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.session_create_path => self
+                .better_auth_server
+                .create_session(message, self.attributes.clone())
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.session_refresh_path => self
+                .better_auth_server
+                .refresh_session::<MockAccessAttributes>(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.device_unlink_path => self
+                .better_auth_server
+                .unlink_device(message)
+                .await
+                .map_err(|e| e.to_string()),
+            p if p == self.recovery_change_path => self
+                .better_auth_server
+                .change_recovery_key(message)
+                .await
+                .map_err(|e| e.to_string()),
             "/foo/bar" => {
                 let (_request, token, _nonce) = self
                     .access_verifier
                     .verify::<FakeRequestData, MockAccessAttributes>(message)
-                    .await?;
+                    .await
+                    .map_err(|e| e.to_string())?;
 
                 // Verify identity format
                 if !token.identity.starts_with('E') {
@@ -191,13 +213,16 @@ impl MockNetworkServer {
                     return Err("attributes do not match".to_string());
                 }
 
-                self.respond_to_access_request(message, None).await
+                self.respond_to_access_request(message, None)
+                    .await
+                    .map_err(|e| e.to_string())
             }
             "/bad/nonce" => {
                 let (_request, token, _nonce) = self
                     .access_verifier
                     .verify::<FakeRequestData, MockAccessAttributes>(message)
-                    .await?;
+                    .await
+                    .map_err(|e| e.to_string())?;
 
                 // Verify identity format
                 if !token.identity.starts_with('E') {
@@ -218,6 +243,7 @@ impl MockNetworkServer {
                     Some("0A0123456789abcdefghijkl".to_string()),
                 )
                 .await
+                .map_err(|e| e.to_string())
             }
             _ => Err("unexpected message".to_string()),
         }
@@ -245,7 +271,7 @@ async fn execute_flow(
     better_auth_client: &BetterAuthClient,
     ecc_verifier: &Secp256r1Verifier,
     response_verification_key_store: &VerificationKeyStoreImpl,
-) -> Result<(), String> {
+) -> Result<(), BetterAuthError> {
     better_auth_client.rotate_device().await?;
     better_auth_client.create_session().await?;
     better_auth_client.refresh_session().await?;
@@ -265,7 +291,7 @@ async fn test_access(
     better_auth_client: &BetterAuthClient,
     _ecc_verifier: &Secp256r1Verifier,
     response_verification_key_store: &VerificationKeyStoreImpl,
-) -> Result<(), String> {
+) -> Result<(), BetterAuthError> {
     let message = FakeRequestData {
         foo: "bar".to_string(),
         bar: "foo".to_string(),
@@ -287,7 +313,10 @@ async fn test_access(
         .await?;
 
     if response.payload.response.was_foo != "bar" || response.payload.response.was_bar != "foo" {
-        return Err("invalid data returned".to_string());
+        return Err(invalid_message_error(
+            Some("response_data"),
+            Some("invalid data returned"),
+        ));
     }
 
     Ok(())
@@ -301,7 +330,7 @@ async fn create_server(
     refresh_lifetime_in_hours: Option<u32>,
     authentication_key_store: Option<AuthKeyStoreImpl>,
     recovery_hash_store: Option<RecoveryHashStoreImpl>,
-) -> Result<BetterAuthServer, String> {
+) -> Result<BetterAuthServer, BetterAuthError> {
     let ecc_verifier = Secp256r1Verifier::new();
     let hasher = HasherImpl::new();
     let noncer = NoncerImpl::new();
@@ -358,7 +387,7 @@ async fn create_server(
 async fn create_verifier(
     access_signer: Secp256r1,
     access_window_in_seconds: i64,
-) -> Result<AccessVerifier, String> {
+) -> Result<AccessVerifier, BetterAuthError> {
     let ecc_verifier = Secp256r1Verifier::new();
     let access_nonce_store = TimeLockStoreImpl::new(access_window_in_seconds as u64);
     let access_verification_key_store = VerificationKeyStoreImpl::new();
@@ -395,7 +424,7 @@ async fn create_client(
     authentication_key_store: Option<AuthKeyStoreImpl>,
     recovery_hash_store: Option<RecoveryHashStoreImpl>,
     access_token_store: Option<ValueStoreImpl>,
-) -> Result<BetterAuthClient, String> {
+) -> Result<BetterAuthClient, BetterAuthError> {
     let hasher = HasherImpl::new();
     let noncer = NoncerImpl::new();
 
@@ -809,7 +838,7 @@ async fn test_rejects_expired_authentication_challenges() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "expired nonce");
+    assert_eq!(result.unwrap_err().message, "expired nonce");
 }
 
 #[tokio::test]
@@ -872,7 +901,7 @@ async fn test_rejects_expired_refresh_tokens() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "Token has expired");
+    assert_eq!(result.unwrap_err().message, "Token has expired");
 }
 
 #[tokio::test]
@@ -934,7 +963,7 @@ async fn test_rejects_expired_access_tokens() {
 
     let result = execute_flow(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "Token has expired");
+    assert_eq!(result.unwrap_err().message, "Token has expired");
 }
 
 #[tokio::test]
@@ -1009,7 +1038,7 @@ async fn test_detects_tampered_access_tokens() {
 
     let result = test_access(&better_auth_client, &ecc_verifier, &response_key_store).await;
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "invalid signature");
+    assert_eq!(result.unwrap_err().message, "invalid signature");
 }
 
 #[tokio::test]
@@ -1071,7 +1100,7 @@ async fn test_detects_mismatched_access_nonce() {
 
     assert!(result.is_err());
     assert_eq!(
-        result.unwrap_err(),
+        result.unwrap_err().message,
         "Response nonce does not match request nonce"
     );
 }

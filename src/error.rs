@@ -43,6 +43,15 @@ impl fmt::Display for BetterAuthError {
 
 impl std::error::Error for BetterAuthError {}
 
+// Conversion from String errors (from trait implementations) to BetterAuthError
+// This allows the ? operator to work seamlessly with trait methods that return Result<T, String>
+impl From<String> for BetterAuthError {
+    fn from(err: String) -> BetterAuthError {
+        // Generic error for when we receive a string error from a trait implementation
+        BetterAuthError::new("BA000", err)
+    }
+}
+
 // ============================================================================
 // Validation Errors
 // ============================================================================
@@ -245,14 +254,4 @@ pub fn future_request_error(
         err = err.with_context("timeDifference", td);
     }
     err
-}
-
-// ============================================================================
-// Conversion from BetterAuthError to String for Result<T, String>
-// ============================================================================
-
-impl From<BetterAuthError> for String {
-    fn from(err: BetterAuthError) -> String {
-        err.message
-    }
 }
