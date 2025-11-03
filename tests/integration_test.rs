@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use better_auth::api::client::*;
+use better_auth::error::BetterAuthError;
 use better_auth::interfaces::{
     AccountPaths, AuthenticationPaths as AuthPaths, DevicePaths, Hasher as HasherTrait,
     Network as NetworkTrait, RecoveryPaths, SessionPaths, VerificationKey as VerificationKeyTrait,
@@ -13,6 +14,46 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 mod implementation;
+
+// Custom error type for integration tests
+#[derive(Debug)]
+enum IntegrationError {
+    Serialization(String),
+    Signature(String),
+    Network(String),
+}
+
+impl std::fmt::Display for IntegrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            IntegrationError::Serialization(e) => write!(f, "Serialization error: {}", e),
+            IntegrationError::Signature(e) => write!(f, "Signature error: {}", e),
+            IntegrationError::Network(e) => write!(f, "Network error: {}", e),
+        }
+    }
+}
+
+impl From<String> for IntegrationError {
+    fn from(s: String) -> Self {
+        IntegrationError::Network(s)
+    }
+}
+
+impl From<IntegrationError> for BetterAuthError {
+    fn from(err: IntegrationError) -> BetterAuthError {
+        match err {
+            IntegrationError::Serialization(e) => {
+                BetterAuthError::new("INT001", format!("Serialization: {}", e))
+            }
+            IntegrationError::Signature(e) => {
+                BetterAuthError::new("INT002", format!("Signature: {}", e))
+            }
+            IntegrationError::Network(e) => {
+                BetterAuthError::new("INT003", format!("Network: {}", e))
+            }
+        }
+    }
+}
 
 use implementation::{
     ClientRotatingKeyStore as RotatingKeyStoreImpl, ClientValueStore as ValueStoreImpl,
@@ -114,9 +155,11 @@ impl FakeResponse {
 
 #[async_trait]
 impl Serializable for FakeResponse {
-    async fn to_json(&self) -> Result<String, String> {
+    type Error = IntegrationError;
+
+    async fn to_json(&self) -> Result<String, IntegrationError> {
         if self.signature.is_none() {
-            return Err("null signature".to_string());
+            return Err(IntegrationError::Signature("null signature".to_string()));
         }
         #[derive(Serialize)]
         struct FakeResponseSerialized<'a> {
@@ -127,7 +170,7 @@ impl Serializable for FakeResponse {
             payload: &self.payload,
             signature: self.signature.as_ref(),
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| IntegrationError::Serialization(e.to_string()))
     }
 }
 
@@ -145,8 +188,9 @@ impl Signable for FakeResponse {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, String> {
-        serde_json::to_string(&self.payload).map_err(|e| e.to_string())
+    fn compose_payload(&self) -> Result<String, IntegrationError> {
+        serde_json::to_string(&self.payload)
+            .map_err(|e| IntegrationError::Serialization(e.to_string()))
     }
 }
 
@@ -196,9 +240,18 @@ async fn execute_flow(
     _ecc_verifier: &Secp256r1Verifier,
     response_verification_key_store: &IntegrationVerificationKeyStore,
 ) -> Result<(), String> {
-    better_auth_client.rotate_device().await?;
-    better_auth_client.create_session().await?;
-    better_auth_client.refresh_session().await?;
+    better_auth_client
+        .rotate_device()
+        .await
+        .map_err(|e| e.to_string())?;
+    better_auth_client
+        .create_session()
+        .await
+        .map_err(|e| e.to_string())?;
+    better_auth_client
+        .refresh_session()
+        .await
+        .map_err(|e| e.to_string())?;
 
     test_access(better_auth_client, response_verification_key_store).await
 }
@@ -214,7 +267,8 @@ async fn test_access(
 
     let reply = better_auth_client
         .make_access_request("/foo/bar", message)
-        .await?;
+        .await
+        .map_err(|e| e.to_string())?;
     let response = FakeResponse::parse(&reply)?;
 
     let response_key = VerificationKeyStoreTrait::get(
@@ -225,7 +279,8 @@ async fn test_access(
     let public_key_str = VerificationKeyTrait::public(response_key.as_ref()).await?;
     response
         .verify(response_key.verifier(), &public_key_str)
-        .await?;
+        .await
+        .map_err(|e| e.to_string())?;
 
     if response.payload.response.was_foo != "bar" || response.payload.response.was_bar != "foo" {
         return Err("invalid data returned".to_string());
@@ -549,7 +604,7 @@ async fn test_detects_mismatched_access_nonce() {
 
     assert!(result.is_err());
     assert_eq!(
-        result.unwrap_err(),
+        result.unwrap_err().message,
         "Response nonce does not match request nonce"
     );
 }

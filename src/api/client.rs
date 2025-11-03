@@ -45,19 +45,19 @@ pub struct BetterAuthClient {
 }
 
 impl BetterAuthClient {
-    pub async fn identity(&self) -> Result<String, String> {
-        self.store.identifier.identity.get().await
+    pub async fn identity(&self) -> Result<String, BetterAuthError> {
+        Ok(self.store.identifier.identity.get().await?)
     }
 
-    pub async fn device(&self) -> Result<String, String> {
-        self.store.identifier.device.get().await
+    pub async fn device(&self) -> Result<String, BetterAuthError> {
+        Ok(self.store.identifier.device.get().await?)
     }
 
     async fn verify_response<T: Signable>(
         &self,
         response: &T,
         server_identity: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), BetterAuthError> {
         let public_key = self.store.key.response.get(server_identity).await?;
         let verifier = public_key.verifier();
         let pk = public_key.public().await?;
@@ -65,7 +65,7 @@ impl BetterAuthClient {
         response.verify(verifier, &pk).await
     }
 
-    pub async fn create_account(&self, recovery_hash: String) -> Result<(), String> {
+    pub async fn create_account(&self, recovery_hash: String) -> Result<(), BetterAuthError> {
         let (identity, public_key, rotation_hash) = self
             .store
             .key
@@ -108,9 +108,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.identifier.identity.store(identity).await?;
@@ -119,7 +120,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn delete_account(&self) -> Result<(), String> {
+    pub async fn delete_account(&self) -> Result<(), BetterAuthError> {
         let nonce = self.crypto.noncer.generate_128().await?;
         let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
 
@@ -149,9 +150,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.key.authentication.rotate().await?;
@@ -164,7 +166,7 @@ impl BetterAuthClient {
         identity: String,
         recovery_key: Box<dyn SigningKey>,
         recovery_hash: String,
-    ) -> Result<(), String> {
+    ) -> Result<(), BetterAuthError> {
         let (_, public_key, rotation_hash) = self.store.key.authentication.initialize(None).await?;
 
         let device = self
@@ -202,9 +204,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.identifier.identity.store(identity).await?;
@@ -213,7 +216,10 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn generate_link_container(&self, identity: String) -> Result<String, String> {
+    pub async fn generate_link_container(
+        &self,
+        identity: String,
+    ) -> Result<String, BetterAuthError> {
         let (_, public_key, rotation_hash) = self.store.key.authentication.initialize(None).await?;
 
         let device = self
@@ -244,7 +250,7 @@ impl BetterAuthClient {
         link_container.to_json().await
     }
 
-    pub async fn link_device(&self, link_container: String) -> Result<(), String> {
+    pub async fn link_device(&self, link_container: String) -> Result<(), BetterAuthError> {
         let container = LinkContainer::parse(&link_container)?;
         let nonce = self.crypto.noncer.generate_128().await?;
         let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
@@ -276,9 +282,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.key.authentication.rotate().await?;
@@ -286,7 +293,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn unlink_device(&self, device: String) -> Result<(), String> {
+    pub async fn unlink_device(&self, device: String) -> Result<(), BetterAuthError> {
         let nonce = self.crypto.noncer.generate_128().await?;
         let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
 
@@ -325,9 +332,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.key.authentication.rotate().await?;
@@ -335,7 +343,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn rotate_device(&self) -> Result<(), String> {
+    pub async fn rotate_device(&self) -> Result<(), BetterAuthError> {
         let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
@@ -365,9 +373,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.key.authentication.rotate().await?;
@@ -375,7 +384,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn change_recovery_key(&self, recovery_hash: String) -> Result<(), String> {
+    pub async fn change_recovery_key(&self, recovery_hash: String) -> Result<(), BetterAuthError> {
         let (signing_key, rotation_hash) = self.store.key.authentication.next().await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
@@ -406,9 +415,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store.key.authentication.rotate().await?;
@@ -416,7 +426,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn create_session(&self) -> Result<(), String> {
+    pub async fn create_session(&self) -> Result<(), BetterAuthError> {
         let start_nonce = self.crypto.noncer.generate_128().await?;
 
         let start_request = RequestSessionRequest::new(
@@ -442,8 +452,7 @@ impl BetterAuthClient {
             return Err(incorrect_nonce_error(
                 Some(&start_nonce),
                 Some(&start_response.payload.access.nonce),
-            )
-            .into());
+            ));
         }
 
         let (_, current_key, next_key_hash) = self.store.key.access.initialize(None).await?;
@@ -484,8 +493,7 @@ impl BetterAuthClient {
             return Err(incorrect_nonce_error(
                 Some(&finish_nonce),
                 Some(&finish_response.payload.access.nonce),
-            )
-            .into());
+            ));
         }
 
         self.store
@@ -497,7 +505,7 @@ impl BetterAuthClient {
         Ok(())
     }
 
-    pub async fn refresh_session(&self) -> Result<(), String> {
+    pub async fn refresh_session(&self) -> Result<(), BetterAuthError> {
         let (signing_key, rotation_hash) = self.store.key.access.next().await?;
         let nonce = self.crypto.noncer.generate_128().await?;
 
@@ -526,9 +534,10 @@ impl BetterAuthClient {
             .await?;
 
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         self.store
@@ -546,7 +555,7 @@ impl BetterAuthClient {
         &self,
         path: &str,
         request: T,
-    ) -> Result<String, String> {
+    ) -> Result<String, BetterAuthError> {
         let nonce = self.crypto.noncer.generate_128().await?;
         let timestamp = self
             .encoding
@@ -571,9 +580,10 @@ impl BetterAuthClient {
 
         let response = ScannableResponse::parse(&reply)?;
         if response.payload.access.nonce != nonce {
-            return Err(
-                incorrect_nonce_error(Some(&nonce), Some(&response.payload.access.nonce)).into(),
-            );
+            return Err(incorrect_nonce_error(
+                Some(&nonce),
+                Some(&response.payload.access.nonce),
+            ));
         }
 
         Ok(reply)

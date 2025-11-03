@@ -10,6 +10,7 @@ use better_auth::api::server::{
     BetterAuthServerExpiry, BetterAuthServerKeyPair, BetterAuthServerRecoveryStore,
     BetterAuthServerStore,
 };
+use better_auth::error::BetterAuthError;
 use better_auth::interfaces::{SigningKey, VerificationKey};
 use better_auth::messages::{AccessToken, ServerResponse};
 use better_auth::messages::{Serializable, Signable};
@@ -53,7 +54,7 @@ struct AppState {
 async fn wrap_response<F, Fut>(body: String, logic: F) -> (StatusCode, String)
 where
     F: FnOnce(String) -> Fut,
-    Fut: std::future::Future<Output = Result<String, String>>,
+    Fut: std::future::Future<Output = Result<String, BetterAuthError>>,
 {
     match logic(body).await {
         Ok(reply) => (StatusCode::OK, reply),
@@ -61,7 +62,11 @@ where
             eprintln!("error: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                r#"{"error":"an error occurred"}"#.to_string(),
+                format!(
+                    r#"{{"error":{}}}"#,
+                    serde_json::to_string(&e)
+                        .unwrap_or_else(|_| "\"serialization error\"".to_string())
+                ),
             )
         }
     }
@@ -162,7 +167,7 @@ async fn rotate_access(State(state): State<AppState>, body: String) -> (StatusCo
 
 async fn response_key(State(state): State<AppState>, _body: String) -> (StatusCode, String) {
     wrap_response(String::new(), |_| async move {
-        state.server_response_key.public().await
+        Ok(state.server_response_key.public().await?)
     })
     .await
 }
@@ -171,7 +176,7 @@ async fn respond_to_access_request(
     state: &AppState,
     message: String,
     bad_nonce: bool,
-) -> Result<String, String> {
+) -> Result<String, BetterAuthError> {
     // Verify the access token
     let (request, _token, request_nonce): (
         MockRequestPayload,

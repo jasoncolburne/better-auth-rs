@@ -1,3 +1,5 @@
+use crate::error::BetterAuthError;
+use crate::invalid_message_error;
 use crate::messages::{ClientRequest, Serializable, ServerResponse, Signable};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -34,18 +36,25 @@ impl LinkContainer {
         }
     }
 
-    pub fn parse(message: &str) -> Result<Self, String> {
-        serde_json::from_str(message).map_err(|e| e.to_string())
+    pub fn parse(message: &str) -> Result<Self, BetterAuthError> {
+        serde_json::from_str(message)
+            .map_err(|e| invalid_message_error(Some("message"), Some(&e.to_string())))
     }
 }
 
 #[async_trait]
 impl Serializable for LinkContainer {
-    async fn to_json(&self) -> Result<String, String> {
+    type Error = BetterAuthError;
+
+    async fn to_json(&self) -> Result<String, Self::Error> {
         if self.signature.is_none() {
-            return Err("null signature".to_string());
+            return Err(invalid_message_error(
+                Some("signature"),
+                Some("null signature"),
+            ));
         }
-        serde_json::to_string(self).map_err(|e| e.to_string())
+        serde_json::to_string(self)
+            .map_err(|e| invalid_message_error(Some("serialization"), Some(&e.to_string())))
     }
 }
 
@@ -63,8 +72,9 @@ impl Signable for LinkContainer {
         self.signature = Some(signature);
     }
 
-    fn compose_payload(&self) -> Result<String, String> {
-        serde_json::to_string(&self.payload).map_err(|e| e.to_string())
+    fn compose_payload(&self) -> Result<String, Self::Error> {
+        serde_json::to_string(&self.payload)
+            .map_err(|e| invalid_message_error(Some("payload_serialization"), Some(&e.to_string())))
     }
 }
 
